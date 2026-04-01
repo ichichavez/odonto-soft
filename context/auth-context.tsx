@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { useRouter, usePathname } from "next/navigation"
+import { createBrowserClient } from "@/lib/supabase"
 
 type UserWithRole = {
   id: string
@@ -23,34 +24,65 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Usuario de demostración
-const DEMO_USER: UserWithRole = {
-  id: "061e844e-1916-45d3-8dbf-da39a3c8085b",
-  email: "isidrochavez429@gmail.com",
-  name: "Isidro Chávez",
-  role: "admin",
-  clinic_id: "00000000-0000-0000-0000-000000000001",
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserWithRole | null>(null)
   const [session, setSession] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
+  const supabase = createBrowserClient()
 
-  // Verificar si hay una sesión guardada al cargar
-  useEffect(() => {
-    const savedUser = localStorage.getItem("demo-user")
-    if (savedUser) {
-      const userData = JSON.parse(savedUser)
-      setUser(userData)
-      setSession({ user: userData })
+  // Cargar perfil desde public.users
+  const loadProfile = async (authUser: { id: string; email: string | null }) => {
+    try {
+      const { data } = await supabase
+        .from("users")
+        .select("name, role, clinic_id")
+        .eq("id", authUser.id)
+        .single()
+
+      setUser({
+        id: authUser.id,
+        email: authUser.email,
+        name: data?.name ?? authUser.email ?? "Usuario",
+        role: data?.role ?? "asistente",
+        clinic_id: data?.clinic_id ?? null,
+      })
+    } catch {
+      // Si no existe perfil aún, usar datos mínimos
+      setUser({
+        id: authUser.id,
+        email: authUser.email,
+        name: authUser.email ?? "Usuario",
+        role: "asistente",
+        clinic_id: null,
+      })
     }
-    setLoading(false)
-  }, [])
+  }
 
-  // Redirigir a login si no está autenticado y no está en la página de login
+  // Escuchar cambios de sesión de Supabase Auth
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, currentSession) => {
+        setSession(currentSession)
+
+        if (currentSession?.user) {
+          await loadProfile({
+            id: currentSession.user.id,
+            email: currentSession.user.email ?? null,
+          })
+        } else {
+          setUser(null)
+        }
+
+        setLoading(false)
+      }
+    )
+
+    return () => subscription.unsubscribe()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Redirigir a login si no está autenticado
   useEffect(() => {
     if (!loading && !user && pathname !== "/login") {
       router.push("/login")
@@ -58,30 +90,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, loading, pathname, router])
 
   const signIn = async (email: string, password: string) => {
-    try {
-      // Simulación de autenticación
-      if (email === "isidrochavez429@gmail.com" || email === "admin@odontoclinica.com") {
-        setUser(DEMO_USER)
-        setSession({ user: DEMO_USER })
-        localStorage.setItem("demo-user", JSON.stringify(DEMO_USER))
-        return { error: null }
-      } else {
-        return {
-          error: {
-            message:
-              "Credenciales inválidas. Use: isidrochavez429@gmail.com o admin@odontoclinica.com con cualquier contraseña.",
-          },
-        }
-      }
-    } catch (error) {
-      return { error }
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    return { error }
   }
 
   const signOut = async () => {
+    await supabase.auth.signOut()
     setUser(null)
     setSession(null)
-    localStorage.removeItem("demo-user")
     router.push("/login")
   }
 

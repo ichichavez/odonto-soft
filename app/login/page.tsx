@@ -52,7 +52,7 @@ export default function LoginPage() {
   const handleDemoLogin = async () => {
     setIsLoading(true)
     try {
-      const { error } = await signIn("isidrochavez429@gmail.com", "demo123")
+      const { error } = await signIn("demo@odonto-soft.com", "Demo1234!")
       if (error) throw error
       router.push("/")
     } catch (error: any) {
