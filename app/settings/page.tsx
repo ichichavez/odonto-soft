@@ -1,16 +1,17 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef } from "react"
 import { useAuth } from "@/context/auth-context"
 import { useClinic } from "@/context/clinic-context"
 import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
-import { SmileIcon as Tooth, Upload, Palette, Building2, Users } from "lucide-react"
+import { SmileIcon as Tooth, Upload, Palette, Building2, Users, FileSignature } from "lucide-react"
 import Image from "next/image"
 import { hexToHsl, getContrastColor } from "@/lib/color-utils"
 
@@ -46,9 +47,11 @@ export default function SettingsPage() {
 
   const [clinicName, setClinicName] = useState("")
   const [colorInput, setColorInput] = useState("")
+  const [consentTemplate, setConsentTemplate] = useState("")
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [savingName, setSavingName] = useState(false)
   const [savingColor, setSavingColor] = useState(false)
+  const [savingConsent, setSavingConsent] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Initialize state once clinic loads
@@ -56,6 +59,7 @@ export default function SettingsPage() {
   if (clinic && !initialized.current) {
     setClinicName(clinic.name)
     setColorInput(clinic.primary_color)
+    setConsentTemplate(clinic.consent_template ?? "")
     initialized.current = true
   }
 
@@ -74,6 +78,17 @@ export default function SettingsPage() {
         <Skeleton className="h-64 w-full" />
       </div>
     )
+  }
+
+  const handleSaveConsent = async () => {
+    setSavingConsent(true)
+    const { error } = await updateClinic({ consent_template: consentTemplate })
+    setSavingConsent(false)
+    if (error) {
+      toast({ title: "Error", description: "No se pudo guardar el consentimiento.", variant: "destructive" })
+    } else {
+      toast({ title: "Guardado", description: "Texto de consentimiento actualizado." })
+    }
   }
 
   const handleSaveName = async () => {
@@ -132,7 +147,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs defaultValue="clinica">
-        <TabsList className="mb-6">
+        <TabsList className="mb-6 flex flex-wrap h-auto gap-1">
           <TabsTrigger value="clinica" className="gap-2">
             <Building2 className="h-4 w-4" />
             Clínica
@@ -140,6 +155,10 @@ export default function SettingsPage() {
           <TabsTrigger value="apariencia" className="gap-2">
             <Palette className="h-4 w-4" />
             Apariencia
+          </TabsTrigger>
+          <TabsTrigger value="documentos" className="gap-2">
+            <FileSignature className="h-4 w-4" />
+            Documentos
           </TabsTrigger>
           <TabsTrigger value="usuarios" className="gap-2">
             <Users className="h-4 w-4" />
@@ -256,6 +275,34 @@ export default function SettingsPage() {
                 </Button>
               </div>
               <ColorPreview color={colorInput} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab: Documentos */}
+        <TabsContent value="documentos">
+          <Card>
+            <CardHeader>
+              <CardTitle>Consentimiento informado</CardTitle>
+              <CardDescription>
+                Este texto se muestra al paciente al firmar la ficha odontológica. Se guarda una copia
+                inmutable junto a cada firma, por lo que cambios futuros no afectan firmas anteriores.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Textarea
+                value={consentTemplate}
+                onChange={(e) => setConsentTemplate(e.target.value)}
+                rows={14}
+                placeholder="Escriba el texto del consentimiento informado..."
+                className="font-mono text-sm resize-y"
+              />
+              <p className="text-xs text-muted-foreground">
+                {consentTemplate.length} caracteres
+              </p>
+              <Button onClick={handleSaveConsent} disabled={savingConsent}>
+                {savingConsent ? "Guardando..." : "Guardar texto"}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
