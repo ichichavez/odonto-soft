@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Calendar, FileText, Pencil } from "lucide-react"
+import { ArrowLeft, Baby, Calendar, ClipboardList, FileText, Pencil, User } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { patientService } from "@/services/patients"
@@ -194,21 +194,38 @@ export default function PacienteDetallePage({ params }: { params: { id: string }
 
   return (
     <div className="flex flex-col p-6 space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         <Button variant="outline" size="icon" asChild>
           <Link href="/pacientes">
             <ArrowLeft className="h-4 w-4" />
             <span className="sr-only">Volver</span>
           </Link>
         </Button>
-        <h1 className="text-2xl font-bold">
-          {patient.first_name} {patient.last_name}
-        </h1>
-        <div className="ml-auto">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold">
+            {patient.first_name} {patient.last_name}
+          </h1>
+          {patient.patient_type === "nino" ? (
+            <Badge variant="secondary" className="gap-1">
+              <Baby className="h-3 w-3" /> Niño/a
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="gap-1">
+              <User className="h-3 w-3" /> Adulto
+            </Badge>
+          )}
+        </div>
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" asChild>
+            <Link href={`/pacientes/${params.id}/ficha`} className="flex items-center gap-2">
+              <ClipboardList className="h-4 w-4" />
+              Ficha Odontológica
+            </Link>
+          </Button>
           <Button asChild>
             <Link href={`/pacientes/${params.id}/editar`} className="flex items-center gap-2">
               <Pencil className="h-4 w-4" />
-              Editar Paciente
+              Editar
             </Link>
           </Button>
         </div>
@@ -228,27 +245,18 @@ export default function PacienteDetallePage({ params }: { params: { id: string }
               <CardDescription>Datos personales del paciente</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Nombre Completo</h3>
-                  <p className="text-base">
-                    {patient.first_name} {patient.last_name}
-                  </p>
+                  <p className="text-base">{patient.first_name} {patient.last_name}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">C.I.</h3>
+                  <p className="text-base">{patient.identity_number || "No registrada"}</p>
                 </div>
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Fecha de Nacimiento</h3>
                   <p className="text-base">{formatDate(patient.birth_date)}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Correo Electrónico</h3>
-                  <p className="text-base">{patient.email || "No disponible"}</p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Teléfono</h3>
-                  <p className="text-base">{patient.phone || "No disponible"}</p>
                 </div>
               </div>
 
@@ -258,19 +266,83 @@ export default function PacienteDetallePage({ params }: { params: { id: string }
                   <p className="text-base capitalize">{patient.gender || "No especificado"}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">Estado Civil</h3>
-                  <p className="text-base capitalize">{patient.marital_status || "No especificado"}</p>
+                  <h3 className="text-sm font-medium text-muted-foreground">Teléfono</h3>
+                  <p className="text-base">{patient.phone || "No disponible"}</p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-muted-foreground">C.I. (Cédula de Identidad)</h3>
-                  <p className="text-base">{patient.identity_number || "No registrada"}</p>
+                  <h3 className="text-sm font-medium text-muted-foreground">Celular</h3>
+                  <p className="text-base">{patient.secondary_phone || "No disponible"}</p>
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Dirección</h3>
-                <p className="text-base">{patient.address || "No disponible"}</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Correo Electrónico</h3>
+                  <p className="text-base">{patient.email || "No disponible"}</p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground">Dirección de Domicilio</h3>
+                  <p className="text-base">{patient.address || "No disponible"}</p>
+                </div>
               </div>
+
+              {/* Campos de adulto */}
+              {patient.patient_type !== "nino" && (patient.profession || patient.marital_status || patient.work_address || patient.work_phone) && (
+                <div className="pt-3 border-t space-y-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Datos del paciente adulto</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">Estado Civil</h3>
+                      <p className="text-base capitalize">{patient.marital_status || "No especificado"}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">Profesión</h3>
+                      <p className="text-base">{patient.profession || "No registrada"}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">Teléfono Laboral</h3>
+                      <p className="text-base">{patient.work_phone || "No disponible"}</p>
+                    </div>
+                  </div>
+                  {patient.work_address && (
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">Dirección Laboral</h3>
+                      <p className="text-base">{patient.work_address}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Campos de niño / encargado */}
+              {patient.patient_type === "nino" && (patient.guardian_name || patient.guardian_phone) && (
+                <div className="pt-3 border-t space-y-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Datos del encargado / tutor</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">Encargado</h3>
+                      <p className="text-base">{patient.guardian_name || "No registrado"}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">C.I. del Encargado</h3>
+                      <p className="text-base">{patient.guardian_identity_number || "No registrada"}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">Relación</h3>
+                      <p className="text-base capitalize">{patient.guardian_relationship || "No especificada"}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">Teléfono del Encargado</h3>
+                      <p className="text-base">{patient.guardian_phone || "No disponible"}</p>
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-muted-foreground">Celular del Encargado</h3>
+                      <p className="text-base">{patient.guardian_secondary_phone || "No disponible"}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

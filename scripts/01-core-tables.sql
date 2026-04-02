@@ -30,21 +30,34 @@ ALTER TABLE public.users
 
 -- 2. Pacientes
 CREATE TABLE IF NOT EXISTS patients (
-  id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  first_name       TEXT NOT NULL,
-  last_name        TEXT NOT NULL,
-  identity_number  TEXT,
-  email            TEXT,
-  phone            TEXT,
-  secondary_phone  TEXT,
-  birth_date       DATE,
-  gender           TEXT,
-  marital_status   TEXT,
-  address          TEXT,
-  avatar_url       TEXT,
-  clinic_id        UUID REFERENCES clinics(id),
-  created_at       TIMESTAMPTZ DEFAULT NOW(),
-  updated_at       TIMESTAMPTZ DEFAULT NOW()
+  id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  first_name                  TEXT NOT NULL,
+  last_name                   TEXT NOT NULL,
+  identity_number             TEXT,
+  email                       TEXT,
+  phone                       TEXT,
+  secondary_phone             TEXT,
+  birth_date                  DATE,
+  gender                      TEXT,
+  marital_status              TEXT,
+  address                     TEXT,
+  avatar_url                  TEXT,
+  -- Tipo de paciente y campos diferenciados
+  patient_type                TEXT DEFAULT 'adulto' CHECK (patient_type IN ('adulto', 'nino')),
+  -- Adulto
+  profession                  TEXT,
+  work_address                TEXT,
+  work_phone                  TEXT,
+  -- Niño (encargado / tutor)
+  guardian_name               TEXT,
+  guardian_identity_number    TEXT,
+  guardian_relationship       TEXT,
+  guardian_phone              TEXT,
+  guardian_secondary_phone    TEXT,
+  -- Multi-tenant
+  clinic_id                   UUID REFERENCES clinics(id),
+  created_at                  TIMESTAMPTZ DEFAULT NOW(),
+  updated_at                  TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- 3. Historial médico simple (legacy, se mantiene por compatibilidad)

@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:push": "PATH=$HOME/bin:$PATH supabase db push",
+    "db:types": "PATH=$HOME/bin:$PATH supabase gen types typescript --linked 2>/dev/null > types/database.ts",
+    "db:migrate": "PATH=$HOME/bin:$PATH supabase migration new",
+    "db:reset": "PATH=$HOME/bin:$PATH supabase db reset"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
