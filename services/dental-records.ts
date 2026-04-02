@@ -1,5 +1,5 @@
 import { createBrowserClient } from "@/lib/supabase"
-import type { DentalRecord, DentalRecordInsert, DentalRecordUpdate, DentalRecordHistory } from "@/types/database"
+import type { DentalRecord, DentalRecordInsert, DentalRecordUpdate, DentalRecordHistory } from "@/types/dental"
 
 export const dentalRecordService = {
   // Obtener ficha activa de un paciente (única por paciente)

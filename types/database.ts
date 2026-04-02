@@ -1267,3 +1267,11 @@ export const Constants = {
     Enums: {},
   },
 } as const
+
+// ─── Alias de tipos para servicios ──────────────────────────────────
+// Estos alias facilitan importar tipos de tablas específicas.
+// NOTA: este bloque se debe agregar de nuevo si se regenera el archivo.
+export type PatientFile       = Database["public"]["Tables"]["patient_files"]["Row"]
+export type PatientFileInsert = Database["public"]["Tables"]["patient_files"]["Insert"]
+export type ConsentSignature       = Database["public"]["Tables"]["consent_signatures"]["Row"]
+export type ConsentSignatureInsert = Database["public"]["Tables"]["consent_signatures"]["Insert"]

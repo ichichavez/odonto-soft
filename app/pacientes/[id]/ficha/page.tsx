@@ -26,7 +26,7 @@ import Link from "next/link"
 import type {
   DentalRecord, ExtraOralExam, IntraOralExam, Habits,
   MedicalHistory, DentalHistory, FeedingHistory, DietRecord,
-} from "@/types/database"
+} from "@/types/dental"
 
 // ─── Valores por defecto ───────────────────────────────────────────
 
@@ -107,7 +107,7 @@ export default function FichaOdontologicaPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [patientName, setPatientName] = useState("")
-  const [history, setHistory] = useState<{ saved_at: string; saved_by_name: string | null }[]>([])
+  const [history, setHistory] = useState<{ saved_at: string | null; saved_by_name: string | null }[]>([])
   const [activeTab, setActiveTab] = useState("datos")
 
   // ── Form state ──
@@ -301,7 +301,7 @@ export default function FichaOdontologicaPage() {
           {history.length > 0 && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
               <Clock className="h-3.5 w-3.5" />
-              Última modificación: {new Date(history[0].saved_at).toLocaleDateString("es-PY")}
+              Última modificación: {history[0].saved_at ? new Date(history[0].saved_at).toLocaleDateString("es-PY") : "—"}
               {history[0].saved_by_name && ` — ${history[0].saved_by_name}`}
             </div>
           )}
