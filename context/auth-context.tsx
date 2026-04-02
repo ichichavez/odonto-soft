@@ -106,6 +106,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return requiredRoles.includes(user.role)
   }
 
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -118,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         hasPermission,
       }}
     >
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   )
 }
