@@ -16,11 +16,11 @@ import { useState } from "react"
 export default function NuevoPresupuestoPage() {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [items, setItems] = useState([{ id: 1, tratamiento: "Limpieza Dental", precio: 80, cantidad: 1, total: 80 }])
+  const [items, setItems] = useState([{ id: 1, tratamiento: "Limpieza Dental", diente: "", precio: 80, cantidad: 1, total: 80 }])
 
   const handleAddItem = () => {
     const newId = items.length > 0 ? Math.max(...items.map((item) => item.id)) + 1 : 1
-    setItems([...items, { id: newId, tratamiento: "", precio: 0, cantidad: 1, total: 0 }])
+    setItems([...items, { id: newId, tratamiento: "", diente: "", precio: 0, cantidad: 1, total: 0 }])
   }
 
   const handleRemoveItem = (id: number) => {
@@ -112,6 +112,7 @@ export default function NuevoPresupuestoPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Tratamiento</TableHead>
+                    <TableHead className="w-24">Diente</TableHead>
                     <TableHead>Precio Unitario</TableHead>
                     <TableHead>Cantidad</TableHead>
                     <TableHead>Total</TableHead>
@@ -138,6 +139,14 @@ export default function NuevoPresupuestoPage() {
                             <SelectItem value="Radiografía">Radiografía</SelectItem>
                           </SelectContent>
                         </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={item.diente}
+                          onChange={(e) => handleItemChange(item.id, "diente", e.target.value)}
+                          placeholder="Ej. 36"
+                          className="w-20"
+                        />
                       </TableCell>
                       <TableCell>
                         <Input

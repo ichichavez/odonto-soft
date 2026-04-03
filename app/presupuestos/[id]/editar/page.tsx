@@ -25,6 +25,7 @@ interface BudgetItem {
   id?: string
   treatment_id: string
   description: string
+  tooth: string
   quantity: number
   price: number
   total: number
@@ -69,6 +70,7 @@ export default function EditarPresupuestoPage({ params }: { params: { id: string
           id: item.id,
           treatment_id: item.treatment_id,
           description: item.description,
+          tooth: item.tooth ?? "",
           quantity: item.quantity,
           price: item.price,
           total: item.total,
@@ -99,6 +101,7 @@ export default function EditarPresupuestoPage({ params }: { params: { id: string
     const newItem: BudgetItem = {
       treatment_id: "",
       description: "",
+      tooth: "",
       quantity: 1,
       price: 0,
       total: 0,
@@ -192,8 +195,9 @@ export default function EditarPresupuestoPage({ params }: { params: { id: string
       }
 
       const budgetItems = items.map((item) => ({
-        treatment_id: item.treatment_id,
+        treatment_id: item.treatment_id || null,
         description: item.description,
+        tooth: item.tooth || null,
         quantity: item.quantity,
         price: item.price,
         total: item.total,
@@ -335,6 +339,7 @@ export default function EditarPresupuestoPage({ params }: { params: { id: string
                   <TableHeader>
                     <TableRow>
                       <TableHead>Tratamiento</TableHead>
+                      <TableHead className="w-24">Diente</TableHead>
                       <TableHead>Precio Unitario</TableHead>
                       <TableHead>Cantidad</TableHead>
                       <TableHead>Total</TableHead>
@@ -360,6 +365,14 @@ export default function EditarPresupuestoPage({ params }: { params: { id: string
                               ))}
                             </SelectContent>
                           </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={item.tooth}
+                            onChange={(e) => handleItemChange(index, "tooth", e.target.value)}
+                            placeholder="Ej. 36"
+                            className="w-20"
+                          />
                         </TableCell>
                         <TableCell>
                           <Input

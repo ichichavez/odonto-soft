@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Baby, Calendar, ClipboardList, FileText, Pencil, User } from "lucide-react"
+import { ArrowLeft, Baby, Calendar, ClipboardList, FileText, Pencil, Pill, Stethoscope, User } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { patientService } from "@/services/patients"
@@ -215,7 +215,19 @@ export default function PacienteDetallePage({ params }: { params: { id: string }
             </Badge>
           )}
         </div>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex gap-2 flex-wrap">
+          <Button variant="outline" asChild>
+            <Link href={`/pacientes/${params.id}/plan-tratamiento`} className="flex items-center gap-2">
+              <Stethoscope className="h-4 w-4" />
+              Plan de Trat.
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href={`/pacientes/${params.id}/receta`} className="flex items-center gap-2">
+              <Pill className="h-4 w-4" />
+              Receta
+            </Link>
+          </Button>
           <Button variant="outline" asChild>
             <Link href={`/pacientes/${params.id}/ficha`} className="flex items-center gap-2">
               <ClipboardList className="h-4 w-4" />

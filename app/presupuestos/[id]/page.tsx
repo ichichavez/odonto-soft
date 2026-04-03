@@ -224,6 +224,7 @@ export default function PresupuestoDetallePage({ params }: { params: { id: strin
                     <thead>
                       <tr className="border-b">
                         <th className="px-4 py-2 text-left">Tratamiento</th>
+                        <th className="px-4 py-2 text-left">Diente</th>
                         <th className="px-4 py-2 text-right">Precio</th>
                         <th className="px-4 py-2 text-right">Cantidad</th>
                         <th className="px-4 py-2 text-right">Total</th>
@@ -233,6 +234,7 @@ export default function PresupuestoDetallePage({ params }: { params: { id: strin
                       {presupuesto.budget_items.map((item: any) => (
                         <tr key={item.id} className="border-b">
                           <td className="px-4 py-2">{item.description}</td>
+                          <td className="px-4 py-2 text-muted-foreground">{item.tooth ?? "—"}</td>
                           <td className="px-4 py-2 text-right">${item.price.toFixed(2)}</td>
                           <td className="px-4 py-2 text-right">{item.quantity}</td>
                           <td className="px-4 py-2 text-right">${item.total.toFixed(2)}</td>
