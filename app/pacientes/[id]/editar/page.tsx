@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Baby, User } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -20,7 +20,8 @@ import { isValidUUID } from "@/lib/utils"
 
 type PatientType = "adulto" | "nino"
 
-export default function EditarPacientePage({ params }: { params: { id: string } }) {
+export default function EditarPacientePage() {
+  const params = useParams() as { id: string }
   const { toast } = useToast()
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)

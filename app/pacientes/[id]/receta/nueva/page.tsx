@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -16,7 +16,8 @@ import { prescriptionService } from "@/services/prescriptions"
 import { useClinic } from "@/context/clinic-context"
 import { useAuth } from "@/context/auth-context"
 
-export default function NuevaRecetaPage({ params }: { params: { id: string } }) {
+export default function NuevaRecetaPage() {
+  const params = useParams() as { id: string }
   const router = useRouter()
   const { toast } = useToast()
   const { clinic } = useClinic()

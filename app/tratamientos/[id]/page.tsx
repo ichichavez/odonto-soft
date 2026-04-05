@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { RoleGuard } from "@/components/role-guard"
 import { ArrowLeft, Clock, Pencil } from "lucide-react"
@@ -10,7 +11,8 @@ import { treatmentService } from "@/services/treatments"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 
-export default function TratamientoDetallePage({ params }: { params: { id: string } }) {
+export default function TratamientoDetallePage() {
+  const params = useParams() as { id: string }
   const { toast } = useToast()
   const [treatment, setTreatment] = useState<any>(null)
   const [loading, setLoading] = useState(true)

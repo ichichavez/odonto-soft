@@ -16,11 +16,12 @@ import { appointmentService } from "@/services/appointments"
 import { patientService } from "@/services/patients"
 import { treatmentService } from "@/services/treatments"
 import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useAuth } from "@/context/auth-context"
 
-export default function EditarCitaPage({ params }: { params: { id: string } }) {
+export default function EditarCitaPage() {
+  const params = useParams() as { id: string }
   const { toast } = useToast()
   const router = useRouter()
   const { user } = useAuth()

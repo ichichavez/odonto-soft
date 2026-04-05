@@ -14,10 +14,11 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 import { inventoryService } from "@/services/inventory"
 import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { Skeleton } from "@/components/ui/skeleton"
 
-export default function EditarMaterialPage({ params }: { params: { id: string } }) {
+export default function EditarMaterialPage() {
+  const params = useParams() as { id: string }
   const { toast } = useToast()
   const router = useRouter()
   const [categories, setCategories] = useState<any[]>([])

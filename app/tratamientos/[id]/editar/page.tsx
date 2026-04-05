@@ -13,10 +13,11 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 import { treatmentService } from "@/services/treatments"
 import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { Skeleton } from "@/components/ui/skeleton"
 
-export default function EditarTratamientoPage({ params }: { params: { id: string } }) {
+export default function EditarTratamientoPage() {
+  const params = useParams() as { id: string }
   const { toast } = useToast()
   const router = useRouter()
   const [loading, setLoading] = useState(true)

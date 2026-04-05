@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { RoleGuard } from "@/components/role-guard"
 import { ArrowLeft, Calendar, Clock, Pencil, User } from "lucide-react"
@@ -11,7 +12,8 @@ import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 
-export default function CitaDetallePage({ params }: { params: { id: string } }) {
+export default function CitaDetallePage() {
+  const params = useParams() as { id: string }
   const { toast } = useToast()
   const [appointment, setAppointment] = useState<any>(null)
   const [loading, setLoading] = useState(true)

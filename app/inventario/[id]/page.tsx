@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { RoleGuard } from "@/components/role-guard"
 import { ArrowDown, ArrowLeft, ArrowUp, Package, Pencil, Settings } from "lucide-react"
@@ -12,7 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 
-export default function MaterialDetallePage({ params }: { params: { id: string } }) {
+export default function MaterialDetallePage() {
+  const params = useParams() as { id: string }
   const { toast } = useToast()
   const [material, setMaterial] = useState<any>(null)
   const [movements, setMovements] = useState<any[]>([])

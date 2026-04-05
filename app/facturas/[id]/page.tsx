@@ -1,6 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { useParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { RoleGuard } from "@/components/role-guard"
 import { ArrowLeft, Download, Printer, Share2 } from "lucide-react"
@@ -25,7 +26,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
-export default function FacturaDetallePage({ params }: { params: { id: string } }) {
+export default function FacturaDetallePage() {
+  const params = useParams() as { id: string }
   const { toast } = useToast()
   const { hasPermission } = useAuth()
   const [factura, setFactura] = useState<any>(null)

@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, Minus, Plus } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { budgetService } from "@/services/budgets"
 import { treatmentService } from "@/services/treatments"
@@ -31,7 +31,8 @@ interface BudgetItem {
   total: number
 }
 
-export default function EditarPresupuestoPage({ params }: { params: { id: string } }) {
+export default function EditarPresupuestoPage() {
+  const params = useParams() as { id: string }
   const { toast } = useToast()
   const router = useRouter()
   const { user } = useAuth()

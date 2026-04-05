@@ -13,12 +13,13 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 import { inventoryService } from "@/services/inventory"
 import { useToast } from "@/hooks/use-toast"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { useAuth } from "@/context/auth-context"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
-export default function SalidaInventarioPage({ params }: { params: { id: string } }) {
+export default function SalidaInventarioPage() {
+  const params = useParams() as { id: string }
   const { toast } = useToast()
   const router = useRouter()
   const { user } = useAuth()

@@ -6,7 +6,7 @@ import { RoleGuard } from "@/components/role-guard"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, FileText, Printer, Edit } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import {
   AlertDialog,
@@ -25,7 +25,8 @@ import { invoiceService } from "@/services/invoices"
 import { useAuth } from "@/context/auth-context"
 import { Skeleton } from "@/components/ui/skeleton"
 
-export default function PresupuestoDetallePage({ params }: { params: { id: string } }) {
+export default function PresupuestoDetallePage() {
+  const params = useParams() as { id: string }
   const router = useRouter()
   const { toast } = useToast()
   const { user } = useAuth()

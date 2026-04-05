@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,7 +10,8 @@ import { ArrowLeft, FilePlus, FileText } from "lucide-react"
 import { patientService } from "@/services/patients"
 import { prescriptionService, type Prescription } from "@/services/prescriptions"
 
-export default function RecetasPage({ params }: { params: { id: string } }) {
+export default function RecetasPage() {
+  const params = useParams() as { id: string }
   const { toast } = useToast()
   const [patient, setPatient] = useState<any>(null)
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([])

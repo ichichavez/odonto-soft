@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { useParams } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -33,7 +34,8 @@ function newRow(): Row {
   }
 }
 
-export default function PlanTratamientoPage({ params }: { params: { id: string } }) {
+export default function PlanTratamientoPage() {
+  const params = useParams() as { id: string }
   const { toast } = useToast()
   const { clinic } = useClinic()
   const { user } = useAuth()

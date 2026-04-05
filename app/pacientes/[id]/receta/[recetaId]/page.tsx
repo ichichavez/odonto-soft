@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
@@ -9,7 +10,8 @@ import { patientService } from "@/services/patients"
 import { prescriptionService, type Prescription } from "@/services/prescriptions"
 import { useClinic } from "@/context/clinic-context"
 
-export default function VerRecetaPage({ params }: { params: { id: string; recetaId: string } }) {
+export default function VerRecetaPage() {
+  const params = useParams() as { id: string; recetaId: string }
   const { toast } = useToast()
   const { clinic } = useClinic()
   const [patient, setPatient] = useState<any>(null)

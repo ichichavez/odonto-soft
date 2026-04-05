@@ -13,10 +13,11 @@ import { Badge } from "@/components/ui/badge"
 import { appointmentService } from "@/services/appointments"
 import { budgetService } from "@/services/budgets"
 import { PatientGallery } from "@/components/patient-gallery"
-import { useRouter } from "next/navigation"
+import { useRouter, useParams } from "next/navigation"
 import { isValidUUID } from "@/lib/utils"
 
-export default function PacienteDetallePage({ params }: { params: { id: string } }) {
+export default function PacienteDetallePage() {
+  const params = useParams() as { id: string }
   const { toast } = useToast()
   const router = useRouter()
   const [patient, setPatient] = useState<any>(null)
