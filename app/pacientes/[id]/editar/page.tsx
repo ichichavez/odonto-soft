@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { patientService } from "@/services/patients"
 import { isValidUUID } from "@/lib/utils"
-import { DentalGallery } from "@/components/dental-gallery"
+import { PatientGallery } from "@/components/patient-gallery"
 
 type PatientType = "adulto" | "nino"
 
@@ -412,7 +412,7 @@ export default function EditarPacientePage({ params }: { params: { id: string } 
           </TabsContent>
 
           <TabsContent value="galeria">
-            {isValidUUID(params.id) && <DentalGallery patientId={params.id} />}
+            {isValidUUID(params.id) && <PatientGallery patientId={params.id} />}
           </TabsContent>
         </Tabs>
 

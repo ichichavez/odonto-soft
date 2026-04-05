@@ -24,17 +24,28 @@ type AuthContextType = {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// Limpia la sesión de Supabase del localStorage si está corrompida
+function clearSupabaseSession() {
+  try {
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
+        localStorage.removeItem(key)
+      }
+    })
+  } catch {}
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserWithRole | null>(null)
   const [session, setSession] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
-  const supabase = createBrowserClient()
 
   // Cargar perfil desde public.users
   const loadProfile = async (authUser: { id: string; email: string | null }) => {
     try {
+      const supabase = createBrowserClient()
       const { data } = await supabase
         .from("users")
         .select("name, role, clinic_id")
@@ -49,7 +60,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clinic_id: data?.clinic_id ?? null,
       })
     } catch {
-      // Si no existe perfil aún, usar datos mínimos
       setUser({
         id: authUser.id,
         email: authUser.email,
@@ -60,27 +70,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Escuchar cambios de sesión de Supabase Auth
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        setSession(currentSession)
+    let subscription: { unsubscribe: () => void } | null = null
 
-        if (currentSession?.user) {
-          await loadProfile({
-            id: currentSession.user.id,
-            email: currentSession.user.email ?? null,
-          })
-        } else {
-          setUser(null)
-        }
+    const init = async () => {
+      try {
+        const supabase = createBrowserClient()
 
+        const { data: { subscription: sub } } = supabase.auth.onAuthStateChange(
+          async (event, currentSession) => {
+            try {
+              setSession(currentSession)
+              if (currentSession?.user) {
+                await loadProfile({
+                  id: currentSession.user.id,
+                  email: currentSession.user.email ?? null,
+                })
+              } else {
+                setUser(null)
+              }
+            } catch (err) {
+              console.error("Auth state change error:", err)
+              setUser(null)
+            } finally {
+              setLoading(false)
+            }
+          }
+        )
+
+        subscription = sub
+      } catch (err) {
+        // Sesión corrompida — limpiar y reiniciar
+        console.error("Auth init error, clearing session:", err)
+        clearSupabaseSession()
+        setUser(null)
         setLoading(false)
       }
-    )
+    }
 
-    return () => subscription.unsubscribe()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    init()
+
+    return () => {
+      subscription?.unsubscribe()
+    }
+  }, [])
 
   // Redirigir a login si no está autenticado
   useEffect(() => {
@@ -90,12 +123,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, loading, pathname, router])
 
   const signIn = async (email: string, password: string) => {
+    const supabase = createBrowserClient()
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     return { error }
   }
 
   const signOut = async () => {
-    await supabase.auth.signOut()
+    try {
+      const supabase = createBrowserClient()
+      await supabase.auth.signOut()
+    } catch {}
+    clearSupabaseSession()
     setUser(null)
     setSession(null)
     router.push("/login")

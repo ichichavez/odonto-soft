@@ -7,6 +7,7 @@ import { ClinicProvider } from "@/context/clinic-context"
 import { NotificationProvider } from "@/context/notification-context"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ThemeInjector } from "@/components/theme-injector"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -23,20 +24,22 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={inter.className}>
-        <AuthProvider>
-          <ClinicProvider>
-            <NotificationProvider>
-              <ThemeInjector />
-              <div className="flex min-h-screen">
-                <AppSidebar />
-                <main className="flex-1 min-w-0 pt-14 lg:pt-0">
-                  {children}
-                </main>
-              </div>
-              <Toaster />
-            </NotificationProvider>
-          </ClinicProvider>
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <ClinicProvider>
+              <NotificationProvider>
+                <ThemeInjector />
+                <div className="flex min-h-screen">
+                  <AppSidebar />
+                  <main className="flex-1 min-w-0 pt-14 lg:pt-0">
+                    {children}
+                  </main>
+                </div>
+                <Toaster />
+              </NotificationProvider>
+            </ClinicProvider>
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   )

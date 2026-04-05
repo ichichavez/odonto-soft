@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { appointmentService } from "@/services/appointments"
 import { budgetService } from "@/services/budgets"
-import { DentalGallery } from "@/components/dental-gallery"
+import { PatientGallery } from "@/components/patient-gallery"
 import { useRouter } from "next/navigation"
 import { isValidUUID } from "@/lib/utils"
 
@@ -411,7 +411,7 @@ export default function PacienteDetallePage({ params }: { params: { id: string }
           </Card>
 
           {/* Galería Dental */}
-          {isValidUUID(params.id) && <DentalGallery patientId={params.id} />}
+          {isValidUUID(params.id) && <PatientGallery patientId={params.id} />}
         </TabsContent>
 
         <TabsContent value="citas" className="mt-6 space-y-6">
