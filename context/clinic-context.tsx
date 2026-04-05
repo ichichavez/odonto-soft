@@ -10,14 +10,17 @@ export type Clinic = {
   slug: string | null
   logo_url: string | null
   primary_color: string
-  created_at: string
-  updated_at: string
+  consent_template: string | null
+  created_at: string | null
+  updated_at: string | null
 }
+
+type ClinicUpdates = Partial<Pick<Clinic, "name" | "logo_url" | "primary_color" | "consent_template">>
 
 type ClinicContextType = {
   clinic: Clinic | null
   loading: boolean
-  updateClinic: (updates: Partial<Pick<Clinic, "name" | "logo_url" | "primary_color">>) => Promise<{ error: any }>
+  updateClinic: (updates: ClinicUpdates) => Promise<{ error: any }>
   uploadLogo: (file: File) => Promise<{ url: string | null; error: any }>
 }
 
@@ -43,7 +46,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         .maybeSingle()
 
       if (data) {
-        setClinic(data)
+        setClinic({ ...data, primary_color: data.primary_color ?? DEFAULT_COLOR })
       } else {
         // La fila no existe todavía — usar valores por defecto en memoria
         setClinic({
@@ -52,6 +55,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
           slug: "demo",
           logo_url: null,
           primary_color: DEFAULT_COLOR,
+          consent_template: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
@@ -64,6 +68,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         slug: "demo",
         logo_url: null,
         primary_color: DEFAULT_COLOR,
+        consent_template: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -76,30 +81,28 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
     fetchClinic()
   }, [fetchClinic])
 
-  const updateClinic = async (
-    updates: Partial<Pick<Clinic, "name" | "logo_url" | "primary_color">>
-  ): Promise<{ error: any }> => {
+  const updateClinic = async (updates: ClinicUpdates): Promise<{ error: any }> => {
     if (!clinic) return { error: new Error("No clinic loaded") }
 
-    const upsertData = {
-      id: clinic.id,
-      name: updates.name ?? clinic.name,
-      slug: clinic.slug ?? "demo",
-      logo_url: updates.logo_url ?? clinic.logo_url,
-      primary_color: updates.primary_color ?? clinic.primary_color,
+    const updateData: Record<string, any> = {
       updated_at: new Date().toISOString(),
     }
+    if (updates.name !== undefined)             updateData.name = updates.name
+    if (updates.logo_url !== undefined)         updateData.logo_url = updates.logo_url
+    if (updates.primary_color !== undefined)    updateData.primary_color = updates.primary_color
+    if (updates.consent_template !== undefined) updateData.consent_template = updates.consent_template
 
     try {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("clinics")
-        .upsert(upsertData, { onConflict: "id" })
+        .update(updateData)
+        .eq("id", clinic.id)
         .select()
         .single()
 
       if (error) return { error }
 
-      setClinic(data)
+      setClinic({ ...clinic, ...data })
       return { error: null }
     } catch (err) {
       return { error: err }
