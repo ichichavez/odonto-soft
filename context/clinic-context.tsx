@@ -24,6 +24,7 @@ type ClinicContextType = {
 const ClinicContext = createContext<ClinicContextType | undefined>(undefined)
 
 const DEFAULT_COLOR = "#10b981"
+const DEMO_CLINIC_ID = "00000000-0000-0000-0000-000000000001"
 
 export function ClinicProvider({ children }: { children: ReactNode }) {
   const [clinic, setClinic] = useState<Clinic | null>(null)
@@ -32,10 +33,33 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
   const supabase = createBrowserClient()
 
   const fetchClinic = useCallback(async () => {
-    if (!user?.clinic_id) {
-      // Use default clinic values when no clinic_id is set
+    const clinicId = user?.clinic_id ?? DEMO_CLINIC_ID
+
+    try {
+      const { data, error } = await supabase
+        .from("clinics")
+        .select("*")
+        .eq("id", clinicId)
+        .maybeSingle()
+
+      if (data) {
+        setClinic(data)
+      } else {
+        // La fila no existe todavía — usar valores por defecto en memoria
+        setClinic({
+          id: clinicId,
+          name: "OdontoSoft Demo",
+          slug: "demo",
+          logo_url: null,
+          primary_color: DEFAULT_COLOR,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+      }
+    } catch (err) {
+      console.error("Clinic fetch error:", err)
       setClinic({
-        id: "00000000-0000-0000-0000-000000000001",
+        id: clinicId,
         name: "OdontoSoft Demo",
         slug: "demo",
         logo_url: null,
@@ -43,34 +67,6 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      setLoading(false)
-      return
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from("clinics")
-        .select("*")
-        .eq("id", user.clinic_id)
-        .single()
-
-      if (error) {
-        console.error("Error fetching clinic:", error)
-        // Fallback to default
-        setClinic({
-          id: user.clinic_id,
-          name: "OdontoSoft",
-          slug: null,
-          logo_url: null,
-          primary_color: DEFAULT_COLOR,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-      } else {
-        setClinic(data)
-      }
-    } catch (err) {
-      console.error("Clinic fetch error:", err)
     } finally {
       setLoading(false)
     }
@@ -85,11 +81,19 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
   ): Promise<{ error: any }> => {
     if (!clinic) return { error: new Error("No clinic loaded") }
 
+    const upsertData = {
+      id: clinic.id,
+      name: updates.name ?? clinic.name,
+      slug: clinic.slug ?? "demo",
+      logo_url: updates.logo_url ?? clinic.logo_url,
+      primary_color: updates.primary_color ?? clinic.primary_color,
+      updated_at: new Date().toISOString(),
+    }
+
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("clinics")
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq("id", clinic.id)
+        .upsert(upsertData, { onConflict: "id" })
         .select()
         .single()
 
