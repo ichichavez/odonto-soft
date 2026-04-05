@@ -17,7 +17,6 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { patientService } from "@/services/patients"
 import { isValidUUID } from "@/lib/utils"
-import { PatientGallery } from "@/components/patient-gallery"
 
 type PatientType = "adulto" | "nino"
 
@@ -179,10 +178,9 @@ export default function EditarPacientePage({ params }: { params: { id: string } 
 
       <form onSubmit={handleSubmit}>
         <Tabs defaultValue="informacion">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="informacion">Información Personal</TabsTrigger>
             <TabsTrigger value="medico">Antecedentes Médicos</TabsTrigger>
-            <TabsTrigger value="galeria">Galería</TabsTrigger>
           </TabsList>
 
           <TabsContent value="informacion">
@@ -411,9 +409,6 @@ export default function EditarPacientePage({ params }: { params: { id: string } 
             </Card>
           </TabsContent>
 
-          <TabsContent value="galeria">
-            {isValidUUID(params.id) && <PatientGallery patientId={params.id} />}
-          </TabsContent>
         </Tabs>
 
         <div className="flex justify-end mt-4 gap-2">
