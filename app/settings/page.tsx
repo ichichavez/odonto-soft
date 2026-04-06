@@ -14,6 +14,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { SmileIcon as Tooth, Upload, Palette, Building2, Users, FileSignature } from "lucide-react"
 import Image from "next/image"
 import { hexToHsl, getContrastColor } from "@/lib/color-utils"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { CURRENCIES } from "@/lib/currency"
 
 function ColorPreview({ color }: { color: string }) {
   const isValidHex = /^#[0-9A-Fa-f]{6}$/.test(color)
@@ -48,10 +50,12 @@ export default function SettingsPage() {
   const [clinicName, setClinicName] = useState("")
   const [colorInput, setColorInput] = useState("")
   const [consentTemplate, setConsentTemplate] = useState("")
+  const [currency, setCurrency] = useState("PYG")
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [savingName, setSavingName] = useState(false)
   const [savingColor, setSavingColor] = useState(false)
   const [savingConsent, setSavingConsent] = useState(false)
+  const [savingCurrency, setSavingCurrency] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Initialize state once clinic loads
@@ -60,6 +64,7 @@ export default function SettingsPage() {
     setClinicName(clinic.name)
     setColorInput(clinic.primary_color)
     setConsentTemplate(clinic.consent_template ?? "")
+    setCurrency(clinic.currency ?? "PYG")
     initialized.current = true
   }
 
@@ -100,6 +105,17 @@ export default function SettingsPage() {
       toast({ title: "Error", description: "No se pudo guardar el nombre.", variant: "destructive" })
     } else {
       toast({ title: "Guardado", description: "Nombre de clínica actualizado." })
+    }
+  }
+
+  const handleSaveCurrency = async () => {
+    setSavingCurrency(true)
+    const { error } = await updateClinic({ currency })
+    setSavingCurrency(false)
+    if (error) {
+      toast({ title: "Error", description: "No se pudo guardar la moneda.", variant: "destructive" })
+    } else {
+      toast({ title: "Guardado", description: "Moneda actualizada." })
     }
   }
 
@@ -185,6 +201,35 @@ export default function SettingsPage() {
               </div>
               <Button onClick={handleSaveName} disabled={savingName}>
                 {savingName ? "Guardando..." : "Guardar nombre"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Moneda</CardTitle>
+              <CardDescription>
+                Moneda utilizada en facturas, presupuestos y reportes. Por defecto: Guaraní paraguayo (₲).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Moneda de la clínica</Label>
+                <Select value={currency} onValueChange={setCurrency}>
+                  <SelectTrigger className="max-w-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CURRENCIES.map(c => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleSaveCurrency} disabled={savingCurrency}>
+                {savingCurrency ? "Guardando..." : "Guardar moneda"}
               </Button>
             </CardContent>
           </Card>

@@ -1,173 +1,75 @@
 "use client"
 
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis } from "recharts"
-
-const data = [
-  {
-    name: "1",
-    total: 400,
-    citas: 3,
-  },
-  {
-    name: "2",
-    total: 300,
-    citas: 2,
-  },
-  {
-    name: "3",
-    total: 200,
-    citas: 1,
-  },
-  {
-    name: "4",
-    total: 450,
-    citas: 4,
-  },
-  {
-    name: "5",
-    total: 500,
-    citas: 5,
-  },
-  {
-    name: "6",
-    total: 350,
-    citas: 3,
-  },
-  {
-    name: "7",
-    total: 200,
-    citas: 2,
-  },
-  {
-    name: "8",
-    total: 400,
-    citas: 4,
-  },
-  {
-    name: "9",
-    total: 300,
-    citas: 3,
-  },
-  {
-    name: "10",
-    total: 450,
-    citas: 4,
-  },
-  {
-    name: "11",
-    total: 500,
-    citas: 5,
-  },
-  {
-    name: "12",
-    total: 350,
-    citas: 3,
-  },
-  {
-    name: "13",
-    total: 200,
-    citas: 2,
-  },
-  {
-    name: "14",
-    total: 400,
-    citas: 4,
-  },
-  {
-    name: "15",
-    total: 300,
-    citas: 3,
-  },
-  {
-    name: "16",
-    total: 450,
-    citas: 4,
-  },
-  {
-    name: "17",
-    total: 500,
-    citas: 5,
-  },
-  {
-    name: "18",
-    total: 350,
-    citas: 3,
-  },
-  {
-    name: "19",
-    total: 200,
-    citas: 2,
-  },
-  {
-    name: "20",
-    total: 400,
-    citas: 4,
-  },
-  {
-    name: "21",
-    total: 300,
-    citas: 3,
-  },
-  {
-    name: "22",
-    total: 450,
-    citas: 4,
-  },
-  {
-    name: "23",
-    total: 500,
-    citas: 5,
-  },
-  {
-    name: "24",
-    total: 350,
-    citas: 3,
-  },
-  {
-    name: "25",
-    total: 200,
-    citas: 2,
-  },
-  {
-    name: "26",
-    total: 400,
-    citas: 4,
-  },
-  {
-    name: "27",
-    total: 300,
-    citas: 3,
-  },
-  {
-    name: "28",
-    total: 450,
-    citas: 4,
-  },
-  {
-    name: "29",
-    total: 500,
-    citas: 5,
-  },
-  {
-    name: "30",
-    total: 350,
-    citas: 3,
-  },
-]
+import { useEffect, useState } from "react"
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts"
+import { Skeleton } from "@/components/ui/skeleton"
+import { appointmentService } from "@/services/appointments"
 
 export function Overview() {
+  const [data, setData] = useState<{ name: string; citas: number }[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = now.getMonth()
+    const daysInMonth = new Date(year, month + 1, 0).getDate()
+
+    // Inicializar array con todos los días del mes
+    const days: { name: string; citas: number }[] = Array.from({ length: daysInMonth }, (_, i) => ({
+      name: String(i + 1),
+      citas: 0,
+    }))
+
+    appointmentService.getAll()
+      .then((appointments: any[]) => {
+        const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`
+        appointments.forEach((a: any) => {
+          if (a.date?.startsWith(monthStr)) {
+            const day = parseInt(a.date.split("-")[2], 10) - 1
+            if (day >= 0 && day < days.length) {
+              days[day].citas++
+            }
+          }
+        })
+        setData(days)
+      })
+      .catch(() => setData(days))
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return <Skeleton className="h-[350px] w-full" />
+  }
+
+  const maxCitas = Math.max(...data.map(d => d.citas), 1)
+
   return (
     <ResponsiveContainer width="100%" height={350}>
       <BarChart data={data}>
-        <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-        <YAxis
+        <XAxis
+          dataKey="name"
           stroke="#888888"
-          fontSize={12}
+          fontSize={11}
           tickLine={false}
           axisLine={false}
-          tickFormatter={(value) => `$${value}`}
+          interval={data.length > 20 ? 4 : 1}
         />
-        <Bar dataKey="total" fill="#adfa1d" radius={[4, 4, 0, 0]} />
+        <YAxis
+          stroke="#888888"
+          fontSize={11}
+          tickLine={false}
+          axisLine={false}
+          allowDecimals={false}
+          domain={[0, maxCitas + 1]}
+          width={24}
+        />
+        <Tooltip
+          formatter={(value: number) => [value, "Citas"]}
+          labelFormatter={(label) => `Día ${label}`}
+          contentStyle={{ fontSize: 12 }}
+        />
+        <Bar dataKey="citas" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )

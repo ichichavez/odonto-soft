@@ -10,12 +10,13 @@ export type Clinic = {
   slug: string | null
   logo_url: string | null
   primary_color: string
+  currency: string
   consent_template: string | null
   created_at: string | null
   updated_at: string | null
 }
 
-type ClinicUpdates = Partial<Pick<Clinic, "name" | "logo_url" | "primary_color" | "consent_template">>
+type ClinicUpdates = Partial<Pick<Clinic, "name" | "logo_url" | "primary_color" | "currency" | "consent_template">>
 
 type ClinicContextType = {
   clinic: Clinic | null
@@ -46,7 +47,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         .maybeSingle()
 
       if (data) {
-        setClinic({ ...data, primary_color: data.primary_color ?? DEFAULT_COLOR })
+        setClinic({ ...data, primary_color: data.primary_color ?? DEFAULT_COLOR, currency: data.currency ?? "PYG" })
       } else {
         // La fila no existe todavía — usar valores por defecto en memoria
         setClinic({
@@ -55,6 +56,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
           slug: "demo",
           logo_url: null,
           primary_color: DEFAULT_COLOR,
+          currency: "PYG",
           consent_template: null,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -90,6 +92,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
     if (updates.name !== undefined)             updateData.name = updates.name
     if (updates.logo_url !== undefined)         updateData.logo_url = updates.logo_url
     if (updates.primary_color !== undefined)    updateData.primary_color = updates.primary_color
+    if (updates.currency !== undefined)         updateData.currency = updates.currency
     if (updates.consent_template !== undefined) updateData.consent_template = updates.consent_template
 
     try {
