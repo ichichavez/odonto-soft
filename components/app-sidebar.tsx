@@ -20,6 +20,7 @@ import {
   SmileIcon as Tooth,
   Menu,
   X,
+  TrendingDown,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/context/auth-context"
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
   { href: "/facturas", label: "Facturas", icon: Receipt },
   { href: "/inventario", label: "Inventario", icon: Package },
   { href: "/ventas-materiales", label: "Ventas", icon: ShoppingCart },
+  { href: "/gastos", label: "Gastos", icon: TrendingDown },
   { href: "/reportes", label: "Reportes", icon: BarChart3 },
   { href: "/notificaciones", label: "Notificaciones", icon: Bell },
 ]
