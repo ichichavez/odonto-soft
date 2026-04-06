@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, Minus, Plus } from "lucide-react"
@@ -318,116 +317,131 @@ export default function EditarPresupuestoPage() {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="notas">Notas</Label>
-                  <Textarea
-                    id="notas"
-                    placeholder="Notas adicionales sobre el presupuesto"
-                    value={budgetData.notes}
-                    onChange={(e) => setBudgetData({ ...budgetData, notes: e.target.value })}
-                  />
-                </div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
                 <CardTitle>Detalle de Tratamientos</CardTitle>
-                <CardDescription>Modifique los tratamientos incluidos en el presupuesto.</CardDescription>
+                <CardDescription>
+                  Seleccione del catálogo para autocompletar descripción y precio, o escriba directamente.
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Tratamiento</TableHead>
-                      <TableHead className="w-24">Diente</TableHead>
-                      <TableHead>Precio Unitario</TableHead>
-                      <TableHead>Cantidad</TableHead>
-                      <TableHead>Total</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {items.map((item, index) => (
-                      <TableRow key={index}>
-                        <TableCell>
-                          <Select
-                            value={item.treatment_id}
-                            onValueChange={(value) => handleItemChange(index, "treatment_id", value)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Seleccionar tratamiento" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {treatments.map((treatment) => (
-                                <SelectItem key={treatment.id} value={treatment.id}>
-                                  {treatment.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={item.tooth}
-                            onChange={(e) => handleItemChange(index, "tooth", e.target.value)}
-                            placeholder="Ej. 36"
-                            className="w-20"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={item.price}
-                            onChange={(e) => handleItemChange(index, "price", Number.parseFloat(e.target.value) || 0)}
-                            min="0"
-                            step="0.01"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            value={item.quantity}
-                            onChange={(e) => handleItemChange(index, "quantity", Number.parseInt(e.target.value) || 0)}
-                            min="1"
-                          />
-                        </TableCell>
-                        <TableCell>${item.total.toFixed(2)}</TableCell>
-                        <TableCell>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleRemoveItem(index)}
-                            disabled={items.length === 1}
-                          >
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <CardContent className="space-y-4">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-muted-foreground text-xs uppercase">
+                        <th className="text-left py-2 px-1 w-20">Diente</th>
+                        <th className="text-left py-2 px-1">Descripción</th>
+                        <th className="text-right py-2 px-1 w-20">Cant.</th>
+                        <th className="text-right py-2 px-1 w-28">Precio unit.</th>
+                        <th className="text-right py-2 px-1 w-28">Total</th>
+                        <th className="w-8"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map((item, index) => (
+                        <tr key={index} className="border-b">
+                          <td className="px-1 py-1">
+                            <Input
+                              value={item.tooth}
+                              onChange={(e) => handleItemChange(index, "tooth", e.target.value)}
+                              placeholder="Ej. 36"
+                              className="h-8 text-xs"
+                            />
+                          </td>
+                          <td className="px-1 py-1">
+                            <div className="flex gap-1">
+                              <Input
+                                value={item.description}
+                                onChange={(e) => handleItemChange(index, "description", e.target.value)}
+                                placeholder="Descripción del tratamiento"
+                                className="h-8 text-xs flex-1"
+                              />
+                              {treatments.length > 0 && (
+                                <Select
+                                  value={item.treatment_id || ""}
+                                  onValueChange={(v) => handleItemChange(index, "treatment_id", v)}
+                                >
+                                  <SelectTrigger className="h-8 w-8 px-1 shrink-0" title="Cargar desde catálogo">
+                                    <span className="text-xs">▾</span>
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="">— Manual —</SelectItem>
+                                    {treatments.map((t) => (
+                                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-1 py-1">
+                            <Input
+                              type="number" min="1"
+                              value={item.quantity}
+                              onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value) || 1)}
+                              className="h-8 text-xs text-right"
+                            />
+                          </td>
+                          <td className="px-1 py-1">
+                            <Input
+                              type="number" min="0" step="0.01"
+                              value={item.price}
+                              onChange={(e) => handleItemChange(index, "price", parseFloat(e.target.value) || 0)}
+                              className="h-8 text-xs text-right"
+                            />
+                          </td>
+                          <td className="px-1 py-1 text-right font-medium pr-2">
+                            ₲ {item.total.toLocaleString("es-PY")}
+                          </td>
+                          <td className="px-1 py-1">
+                            <Button type="button" variant="ghost" size="icon" className="h-7 w-7"
+                              onClick={() => handleRemoveItem(index)} disabled={items.length === 1}>
+                              <Minus className="h-3.5 w-3.5" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t bg-muted/30">
+                        <td colSpan={4} className="py-2 px-2 text-right text-sm font-medium">Subtotal</td>
+                        <td className="py-2 px-2 text-right font-medium">₲ {calcularSubtotal().toLocaleString("es-PY")}</td>
+                        <td></td>
+                      </tr>
+                      <tr>
+                        <td colSpan={4} className="py-1 px-2 text-right text-sm text-muted-foreground">IVA (16%)</td>
+                        <td className="py-1 px-2 text-right text-sm text-muted-foreground">₲ {calcularImpuestos(calcularSubtotal()).toLocaleString("es-PY")}</td>
+                        <td></td>
+                      </tr>
+                      <tr className="border-t">
+                        <td colSpan={4} className="py-2 px-2 text-right font-bold">TOTAL</td>
+                        <td className="py-2 px-2 text-right font-bold text-primary text-base">₲ {calcularTotal().toLocaleString("es-PY")}</td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
 
-                <Button type="button" variant="outline" size="sm" className="mt-4" onClick={handleAddItem}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Agregar Tratamiento
+                <Button type="button" variant="outline" size="sm" onClick={handleAddItem}
+                  className="flex items-center gap-2">
+                  <Plus className="h-3.5 w-3.5" /> Agregar ítem
                 </Button>
+
+                {/* Observaciones */}
+                <div className="space-y-2 pt-2">
+                  <Label htmlFor="notas">Observaciones</Label>
+                  <Textarea
+                    id="notas"
+                    placeholder="Condiciones del presupuesto, aclaraciones, etc."
+                    value={budgetData.notes}
+                    onChange={(e) => setBudgetData({ ...budgetData, notes: e.target.value })}
+                    rows={3}
+                  />
+                </div>
               </CardContent>
-              <CardFooter className="flex flex-col items-end space-y-2">
-                <div className="flex w-full justify-between md:w-1/2">
-                  <span>Subtotal:</span>
-                  <span>${calcularSubtotal().toFixed(2)}</span>
-                </div>
-                <div className="flex w-full justify-between md:w-1/2">
-                  <span>IVA (16%):</span>
-                  <span>${calcularImpuestos(calcularSubtotal()).toFixed(2)}</span>
-                </div>
-                <div className="flex w-full justify-between font-bold text-lg md:w-1/2">
-                  <span>Total:</span>
-                  <span>${calcularTotal().toFixed(2)}</span>
-                </div>
-              </CardFooter>
             </Card>
 
             <div className="flex justify-end space-x-2">

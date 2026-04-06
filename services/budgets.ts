@@ -38,6 +38,7 @@ export const budgetService = {
           id,
           treatment_id,
           description,
+          tooth,
           quantity,
           price,
           total,
