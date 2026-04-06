@@ -15,6 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { patientService } from "@/services/patients"
+import { useClinic } from "@/context/clinic-context"
+import { useAuth } from "@/context/auth-context"
 
 type PatientType = "adulto" | "nino"
 
@@ -45,6 +47,8 @@ const emptyPatient = {
 export default function NuevoPacientePage() {
   const { toast } = useToast()
   const router = useRouter()
+  const { clinic } = useClinic()
+  const { user } = useAuth()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [patientData, setPatientData] = useState(emptyPatient)
   const [medicalData, setMedicalData] = useState({
@@ -81,7 +85,20 @@ export default function NuevoPacientePage() {
     }
     setIsSubmitting(true)
     try {
-      await patientService.create(patientData, medicalData, {})
+      // Convertir strings vacíos a null (evita errores de tipo date, unique constraint, etc.)
+      const sanitized = Object.fromEntries(
+        Object.entries(patientData).map(([k, v]) => [k, typeof v === "string" && v.trim() === "" ? null : v])
+      ) as typeof patientData
+
+      const medicalSanitized = Object.fromEntries(
+        Object.entries(medicalData).map(([k, v]) => [k, v.trim() === "" ? null : v])
+      ) as typeof medicalData
+
+      await patientService.create(
+        { ...sanitized, clinic_id: clinic?.id ?? null },
+        medicalSanitized,
+        {}
+      )
       toast({ title: "Paciente registrado", description: "El paciente ha sido registrado exitosamente." })
       router.push("/pacientes")
     } catch (error) {
