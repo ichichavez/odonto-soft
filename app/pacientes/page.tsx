@@ -100,7 +100,7 @@ export default function PacientesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
+              <TableHead>C.I. / DNI</TableHead>
               <TableHead>Nombre</TableHead>
               <TableHead>Teléfono</TableHead>
               <TableHead>Email</TableHead>
@@ -145,7 +145,7 @@ export default function PacientesPage() {
             ) : (
               patients.map((patient) => (
                 <TableRow key={patient.id}>
-                  <TableCell className="font-mono text-xs">{patient.id.substring(0, 8)}</TableCell>
+                  <TableCell className="text-muted-foreground">{patient.identity_number || "—"}</TableCell>
                   <TableCell className="font-medium">
                     {patient.first_name} {patient.last_name}
                   </TableCell>
