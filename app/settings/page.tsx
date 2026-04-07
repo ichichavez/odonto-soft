@@ -16,6 +16,7 @@ import Image from "next/image"
 import { hexToHsl, getContrastColor } from "@/lib/color-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CURRENCIES } from "@/lib/currency"
+import { SignaturePad } from "@/components/signature-pad"
 
 function ColorPreview({ color }: { color: string }) {
   const isValidHex = /^#[0-9A-Fa-f]{6}$/.test(color)
@@ -53,6 +54,7 @@ export default function SettingsPage() {
   const [currency, setCurrency] = useState("PYG")
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [uploadingSignature, setUploadingSignature] = useState(false)
+  const [savingSignaturePad, setSavingSignaturePad] = useState(false)
   const [savingName, setSavingName] = useState(false)
   const [savingColor, setSavingColor] = useState(false)
   const [savingConsent, setSavingConsent] = useState(false)
@@ -182,6 +184,18 @@ export default function SettingsPage() {
       toast({ title: "Error al subir firma", description: String(error.message || error), variant: "destructive" })
     } else if (url) {
       toast({ title: "Firma actualizada", description: "La firma fue guardada correctamente." })
+    }
+  }
+
+  const handleSignaturePadSave = async (blob: Blob) => {
+    setSavingSignaturePad(true)
+    const file = new File([blob], "signature.png", { type: "image/png" })
+    const { error } = await uploadSignature(file)
+    setSavingSignaturePad(false)
+    if (error) {
+      toast({ title: "Error al guardar firma", description: String(error.message || error), variant: "destructive" })
+    } else {
+      toast({ title: "Firma guardada", description: "La firma fue guardada correctamente." })
     }
   }
 
@@ -473,25 +487,43 @@ export default function SettingsPage() {
             <CardHeader>
               <CardTitle>Firma digital</CardTitle>
               <CardDescription>
-                Sube la imagen de tu firma para incluirla en recetas e indicaciones
+                Dibuja tu firma con el mouse o sube una imagen. Se mostrará en recetas e indicaciones.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="flex h-20 w-48 items-center justify-center rounded border bg-muted overflow-hidden shrink-0">
-                  {clinic?.signature_url ? (
+            <CardContent className="space-y-6">
+              {/* Firma actual */}
+              {clinic?.signature_url && (
+                <div className="space-y-2">
+                  <Label>Firma actual</Label>
+                  <div className="inline-block border rounded-lg p-3 bg-white">
                     <Image
                       src={clinic.signature_url}
                       alt="Firma"
-                      width={192}
+                      width={240}
                       height={80}
                       className="object-contain"
                     />
-                  ) : (
-                    <FileSignature className="h-8 w-8 text-muted-foreground" />
-                  )}
+                  </div>
                 </div>
-                <div>
+              )}
+
+              {/* Opción 1: Dibujar */}
+              <div className="space-y-2">
+                <Label>Dibujar firma</Label>
+                <SignaturePad onSave={handleSignaturePadSave} saving={savingSignaturePad} />
+              </div>
+
+              {/* Separador */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 border-t" />
+                <span className="text-xs text-muted-foreground px-1">o</span>
+                <div className="flex-1 border-t" />
+              </div>
+
+              {/* Opción 2: Subir imagen */}
+              <div className="space-y-2">
+                <Label>Subir imagen de firma</Label>
+                <div className="flex items-center gap-3">
                   <Button
                     variant="outline"
                     onClick={() => signatureInputRef.current?.click()}
@@ -499,20 +531,18 @@ export default function SettingsPage() {
                     className="gap-2"
                   >
                     <Upload className="h-4 w-4" />
-                    {uploadingSignature ? "Subiendo..." : "Subir firma"}
+                    {uploadingSignature ? "Subiendo..." : "Subir imagen"}
                   </Button>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    PNG o JPG con fondo blanco o transparente
-                  </p>
+                  <p className="text-xs text-muted-foreground">PNG o JPG con fondo transparente o blanco</p>
                 </div>
+                <input
+                  ref={signatureInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleSignatureUpload}
+                />
               </div>
-              <input
-                ref={signatureInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleSignatureUpload}
-              />
             </CardContent>
           </Card>
         </TabsContent>
