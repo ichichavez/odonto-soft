@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
-import { SmileIcon as Tooth, Upload, Palette, Building2, Users, FileSignature } from "lucide-react"
+import { SmileIcon as Tooth, Upload, Palette, Building2, Users, FileSignature, Stethoscope } from "lucide-react"
 import Image from "next/image"
 import { hexToHsl, getContrastColor } from "@/lib/color-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -44,7 +44,7 @@ function ColorPreview({ color }: { color: string }) {
 
 export default function SettingsPage() {
   const { user } = useAuth()
-  const { clinic, loading, updateClinic, uploadLogo } = useClinic()
+  const { clinic, loading, updateClinic, uploadLogo, uploadSignature } = useClinic()
   const { toast } = useToast()
 
   const [clinicName, setClinicName] = useState("")
@@ -52,11 +52,19 @@ export default function SettingsPage() {
   const [consentTemplate, setConsentTemplate] = useState("")
   const [currency, setCurrency] = useState("PYG")
   const [uploadingLogo, setUploadingLogo] = useState(false)
+  const [uploadingSignature, setUploadingSignature] = useState(false)
   const [savingName, setSavingName] = useState(false)
   const [savingColor, setSavingColor] = useState(false)
   const [savingConsent, setSavingConsent] = useState(false)
   const [savingCurrency, setSavingCurrency] = useState(false)
+  const [savingProfessional, setSavingProfessional] = useState(false)
+  const [doctorName, setDoctorName] = useState("")
+  const [specialty, setSpecialty] = useState("")
+  const [professionalRegistration, setProfessionalRegistration] = useState("")
+  const [clinicAddress, setClinicAddress] = useState("")
+  const [clinicPhone, setClinicPhone] = useState("")
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const signatureInputRef = useRef<HTMLInputElement>(null)
 
   // Initialize state once clinic loads
   const initialized = useRef(false)
@@ -65,6 +73,11 @@ export default function SettingsPage() {
     setColorInput(clinic.primary_color)
     setConsentTemplate(clinic.consent_template ?? "")
     setCurrency(clinic.currency ?? "PYG")
+    setDoctorName(clinic.doctor_name ?? "")
+    setSpecialty(clinic.specialty ?? "")
+    setProfessionalRegistration(clinic.professional_registration ?? "")
+    setClinicAddress(clinic.address ?? "")
+    setClinicPhone(clinic.phone ?? "")
     initialized.current = true
   }
 
@@ -135,6 +148,43 @@ export default function SettingsPage() {
     }
   }
 
+  const handleSaveProfessional = async () => {
+    setSavingProfessional(true)
+    const { error } = await updateClinic({
+      doctor_name: doctorName.trim() || null,
+      specialty: specialty.trim() || null,
+      professional_registration: professionalRegistration.trim() || null,
+      address: clinicAddress.trim() || null,
+      phone: clinicPhone.trim() || null,
+    })
+    setSavingProfessional(false)
+    if (error) {
+      toast({ title: "Error", description: "No se pudo guardar la información profesional.", variant: "destructive" })
+    } else {
+      toast({ title: "Guardado", description: "Información profesional actualizada." })
+    }
+  }
+
+  const handleSignatureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Archivo inválido", description: "Solo se permiten imágenes.", variant: "destructive" })
+      return
+    }
+
+    setUploadingSignature(true)
+    const { url, error } = await uploadSignature(file)
+    setUploadingSignature(false)
+
+    if (error) {
+      toast({ title: "Error al subir firma", description: String(error.message || error), variant: "destructive" })
+    } else if (url) {
+      toast({ title: "Firma actualizada", description: "La firma fue guardada correctamente." })
+    }
+  }
+
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -175,6 +225,10 @@ export default function SettingsPage() {
           <TabsTrigger value="documentos" className="gap-2">
             <FileSignature className="h-4 w-4" />
             Documentos
+          </TabsTrigger>
+          <TabsTrigger value="profesional" className="gap-2">
+            <Stethoscope className="h-4 w-4" />
+            Profesional
           </TabsTrigger>
           <TabsTrigger value="usuarios" className="gap-2">
             <Users className="h-4 w-4" />
@@ -348,6 +402,117 @@ export default function SettingsPage() {
               <Button onClick={handleSaveConsent} disabled={savingConsent}>
                 {savingConsent ? "Guardando..." : "Guardar texto"}
               </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab: Profesional */}
+        <TabsContent value="profesional" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Información del profesional</CardTitle>
+              <CardDescription>
+                Datos que aparecen en recetas, indicaciones y otros documentos impresos
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="doctor-name">Nombre del doctor/a</Label>
+                  <Input
+                    id="doctor-name"
+                    value={doctorName}
+                    onChange={(e) => setDoctorName(e.target.value)}
+                    placeholder="Dr. María García"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="specialty">Especialidad</Label>
+                  <Input
+                    id="specialty"
+                    value={specialty}
+                    onChange={(e) => setSpecialty(e.target.value)}
+                    placeholder="Odontología General"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="prof-reg">Registro profesional</Label>
+                  <Input
+                    id="prof-reg"
+                    value={professionalRegistration}
+                    onChange={(e) => setProfessionalRegistration(e.target.value)}
+                    placeholder="Nro. 12345"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clinic-phone">Teléfono</Label>
+                  <Input
+                    id="clinic-phone"
+                    value={clinicPhone}
+                    onChange={(e) => setClinicPhone(e.target.value)}
+                    placeholder="+595 21 xxxxxx"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="clinic-address">Dirección</Label>
+                <Input
+                  id="clinic-address"
+                  value={clinicAddress}
+                  onChange={(e) => setClinicAddress(e.target.value)}
+                  placeholder="Av. Principal 123, Ciudad"
+                />
+              </div>
+              <Button onClick={handleSaveProfessional} disabled={savingProfessional}>
+                {savingProfessional ? "Guardando..." : "Guardar información"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Firma digital</CardTitle>
+              <CardDescription>
+                Sube la imagen de tu firma para incluirla en recetas e indicaciones
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="flex h-20 w-48 items-center justify-center rounded border bg-muted overflow-hidden shrink-0">
+                  {clinic?.signature_url ? (
+                    <Image
+                      src={clinic.signature_url}
+                      alt="Firma"
+                      width={192}
+                      height={80}
+                      className="object-contain"
+                    />
+                  ) : (
+                    <FileSignature className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </div>
+                <div>
+                  <Button
+                    variant="outline"
+                    onClick={() => signatureInputRef.current?.click()}
+                    disabled={uploadingSignature}
+                    className="gap-2"
+                  >
+                    <Upload className="h-4 w-4" />
+                    {uploadingSignature ? "Subiendo..." : "Subir firma"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    PNG o JPG con fondo blanco o transparente
+                  </p>
+                </div>
+              </div>
+              <input
+                ref={signatureInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleSignatureUpload}
+              />
             </CardContent>
           </Card>
         </TabsContent>

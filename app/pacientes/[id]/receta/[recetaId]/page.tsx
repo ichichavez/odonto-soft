@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { ArrowLeft, Printer } from "lucide-react"
+import Image from "next/image"
 import { patientService } from "@/services/patients"
 import { prescriptionService, type Prescription } from "@/services/prescriptions"
 import { useClinic } from "@/context/clinic-context"
@@ -79,10 +80,29 @@ export default function VerRecetaPage() {
             className="max-w-2xl mx-auto border rounded-lg p-8 space-y-6 bg-white text-gray-900"
           >
             {/* Membrete */}
-            <div className="border-b pb-4">
-              <h2 className="text-xl font-bold">{clinic?.name ?? "Clínica Odontológica"}</h2>
-              {clinic?.address && <p className="text-sm text-gray-600">{clinic.address}</p>}
-              {clinic?.phone && <p className="text-sm text-gray-600">Tel: {clinic.phone}</p>}
+            <div className="border-b pb-4 flex items-start gap-4">
+              {clinic?.logo_url && (
+                <Image
+                  src={clinic.logo_url}
+                  alt="Logo"
+                  width={72}
+                  height={72}
+                  className="object-contain shrink-0"
+                />
+              )}
+              <div className="flex-1">
+                <h2 className="text-xl font-bold">{clinic?.name ?? "Clínica Odontológica"}</h2>
+                {clinic?.doctor_name && (
+                  <p className="text-sm font-medium text-gray-700">{clinic.doctor_name}</p>
+                )}
+                {(clinic?.specialty || clinic?.professional_registration) && (
+                  <p className="text-sm text-gray-600">
+                    {[clinic?.specialty, clinic?.professional_registration].filter(Boolean).join(" · ")}
+                  </p>
+                )}
+                {clinic?.address && <p className="text-sm text-gray-600">{clinic.address}</p>}
+                {clinic?.phone && <p className="text-sm text-gray-600">Tel: {clinic.phone}</p>}
+              </div>
             </div>
 
             {/* Encabezado */}
@@ -126,10 +146,24 @@ export default function VerRecetaPage() {
             )}
 
             {/* Firma */}
-            <div className="pt-8 border-t text-center text-sm">
-              <div className="mt-8 border-t border-gray-400 w-48 mx-auto pt-2">
+            <div className="pt-6 border-t text-center text-sm">
+              {clinic?.signature_url && (
+                <div className="flex justify-center mb-2">
+                  <Image
+                    src={clinic.signature_url}
+                    alt="Firma"
+                    width={160}
+                    height={64}
+                    className="object-contain"
+                  />
+                </div>
+              )}
+              <div className="border-t border-gray-400 w-56 mx-auto pt-2">
                 <p className="font-semibold">{rx.signed_by_name}</p>
-                <p className="text-gray-500">Odontóloga</p>
+                {clinic?.specialty && <p className="text-gray-600">{clinic.specialty}</p>}
+                {clinic?.professional_registration && (
+                  <p className="text-gray-500 text-xs">{clinic.professional_registration}</p>
+                )}
               </div>
             </div>
           </div>
