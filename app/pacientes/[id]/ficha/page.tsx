@@ -171,13 +171,67 @@ export default function FichaOdontologicaPage() {
         setHeight(record.height?.toString() ?? "")
         setGuardianName(record.guardian_name ?? "")
         setGuardianPhone(record.guardian_phone ?? "")
-        if (record.feeding_history) setFeedingHistory(record.feeding_history as FeedingHistory)
-        if (record.diet_record) setDietRecord(record.diet_record as DietRecord)
-        if (record.extra_oral_exam) setExtraOral(record.extra_oral_exam as ExtraOralExam)
-        if (record.intra_oral_exam) setIntraOral(record.intra_oral_exam as IntraOralExam)
-        if (record.habits) setHabits(record.habits as Habits)
-        if (record.medical_history) setMedicalHistory(record.medical_history as MedicalHistory)
-        if (record.dental_history) setDentalHistory(record.dental_history as DentalHistory)
+        // Fusionar datos guardados con defaults para tolerar campos faltantes en registros anteriores
+        if (record.feeding_history) {
+          const f = record.feeding_history as any
+          setFeedingHistory({ ...defaultFeedingHistory(), ...f })
+        }
+        if (record.diet_record) {
+          const d = record.diet_record as any
+          const def = defaultDietRecord()
+          setDietRecord({
+            preferred_foods: { ...def.preferred_foods, ...(d.preferred_foods ?? {}) },
+            weekly_diet: {
+              monday:    { ...def.weekly_diet.monday,    ...(d.weekly_diet?.monday    ?? {}) },
+              tuesday:   { ...def.weekly_diet.tuesday,   ...(d.weekly_diet?.tuesday   ?? {}) },
+              wednesday: { ...def.weekly_diet.wednesday, ...(d.weekly_diet?.wednesday ?? {}) },
+              thursday:  { ...def.weekly_diet.thursday,  ...(d.weekly_diet?.thursday  ?? {}) },
+              friday:    { ...def.weekly_diet.friday,    ...(d.weekly_diet?.friday    ?? {}) },
+            },
+          })
+        }
+        if (record.extra_oral_exam) {
+          const e = record.extra_oral_exam as any
+          const def = defaultExtraOral()
+          setExtraOral({
+            atm:         { ...def.atm,         ...(e.atm         ?? {}) },
+            head:        { ...def.head,        ...(e.head        ?? {}) },
+            face:        { ...def.face,        ...(e.face        ?? {}) },
+            lymph_nodes: { ...def.lymph_nodes, ...(e.lymph_nodes ?? {}) },
+            lips:        { ...def.lips,        ...(e.lips        ?? {}) },
+          })
+        }
+        if (record.intra_oral_exam) {
+          const i = record.intra_oral_exam as any
+          const def = defaultIntraOral()
+          setIntraOral({
+            gums:                    { ...def.gums,                    ...(i.gums                    ?? {}) },
+            tongue:                  { ...def.tongue,                  ...(i.tongue                  ?? {}) },
+            hard_palate:             { ...def.hard_palate,             ...(i.hard_palate             ?? {}) },
+            soft_palate:             { ...def.soft_palate,             ...(i.soft_palate             ?? {}) },
+            pharynx:                 { ...def.pharynx,                 ...(i.pharynx                 ?? {}) },
+            floor_of_mouth:          { ...def.floor_of_mouth,          ...(i.floor_of_mouth          ?? {}) },
+            occlusion_temporary:     { ...def.occlusion_temporary,     ...(i.occlusion_temporary     ?? {}) },
+            occlusion_mixed_permanent: { ...def.occlusion_mixed_permanent, ...(i.occlusion_mixed_permanent ?? {}) },
+            bite_type:               { ...def.bite_type,               ...(i.bite_type               ?? {}) },
+          })
+        }
+        if (record.habits) {
+          const h = record.habits as any
+          setHabits({ ...defaultHabits(), ...h })
+        }
+        if (record.medical_history) {
+          const m = record.medical_history as any
+          const def = defaultMedicalHistory()
+          setMedicalHistory({
+            ...def, ...m,
+            diseases: { ...def.diseases, ...(m.diseases ?? {}) },
+          })
+        }
+        if (record.dental_history) {
+          const d = record.dental_history as any
+          setDentalHistory({ ...defaultDentalHistory(), ...d })
+        }
       }
     } catch (err) {
       console.error(err)
