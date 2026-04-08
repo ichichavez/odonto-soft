@@ -11,6 +11,7 @@ export type Clinic = {
   logo_url: string | null
   primary_color: string
   currency: string
+  tax_rate: number
   consent_template: string | null
   doctor_name: string | null
   specialty: string | null
@@ -23,7 +24,7 @@ export type Clinic = {
 }
 
 type ClinicUpdates = Partial<Pick<Clinic,
-  | "name" | "logo_url" | "primary_color" | "currency" | "consent_template"
+  | "name" | "logo_url" | "primary_color" | "currency" | "tax_rate" | "consent_template"
   | "doctor_name" | "specialty" | "professional_registration" | "signature_url"
   | "address" | "phone"
 >>
@@ -62,6 +63,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
           ...data,
           primary_color: data.primary_color ?? DEFAULT_COLOR,
           currency: data.currency ?? "PYG",
+          tax_rate: data.tax_rate ?? 10,
           doctor_name: data.doctor_name ?? null,
           specialty: data.specialty ?? null,
           professional_registration: data.professional_registration ?? null,
@@ -78,6 +80,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
           logo_url: null,
           primary_color: DEFAULT_COLOR,
           currency: "PYG",
+          tax_rate: 10,
           consent_template: null,
           doctor_name: null,
           specialty: null,
@@ -134,6 +137,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
     if (updates.signature_url !== undefined)            updateData.signature_url = updates.signature_url
     if (updates.address !== undefined)                  updateData.address = updates.address
     if (updates.phone !== undefined)                    updateData.phone = updates.phone
+    if (updates.tax_rate !== undefined)                 updateData.tax_rate = updates.tax_rate
 
     try {
       const { data, error } = await supabase

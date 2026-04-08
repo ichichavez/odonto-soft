@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
-import { SmileIcon as Tooth, Upload, Palette, Building2, Users, FileSignature, Stethoscope } from "lucide-react"
+import { SmileIcon as Tooth, Upload, Palette, Building2, Users, FileSignature, Stethoscope, Percent } from "lucide-react"
 import Image from "next/image"
 import { hexToHsl, getContrastColor } from "@/lib/color-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -60,6 +60,8 @@ export default function SettingsPage() {
   const [savingConsent, setSavingConsent] = useState(false)
   const [savingCurrency, setSavingCurrency] = useState(false)
   const [savingProfessional, setSavingProfessional] = useState(false)
+  const [taxRate, setTaxRate] = useState("10")
+  const [savingTax, setSavingTax] = useState(false)
   const [doctorName, setDoctorName] = useState("")
   const [specialty, setSpecialty] = useState("")
   const [professionalRegistration, setProfessionalRegistration] = useState("")
@@ -75,6 +77,7 @@ export default function SettingsPage() {
     setColorInput(clinic.primary_color)
     setConsentTemplate(clinic.consent_template ?? "")
     setCurrency(clinic.currency ?? "PYG")
+    setTaxRate(String(clinic.tax_rate ?? 10))
     setDoctorName(clinic.doctor_name ?? "")
     setSpecialty(clinic.specialty ?? "")
     setProfessionalRegistration(clinic.professional_registration ?? "")
@@ -131,6 +134,22 @@ export default function SettingsPage() {
       toast({ title: "Error", description: "No se pudo guardar la moneda.", variant: "destructive" })
     } else {
       toast({ title: "Guardado", description: "Moneda actualizada." })
+    }
+  }
+
+  const handleSaveTax = async () => {
+    const value = parseFloat(taxRate)
+    if (isNaN(value) || value < 0 || value > 100) {
+      toast({ title: "Valor inválido", description: "El impuesto debe ser un número entre 0 y 100.", variant: "destructive" })
+      return
+    }
+    setSavingTax(true)
+    const { error } = await updateClinic({ tax_rate: value })
+    setSavingTax(false)
+    if (error) {
+      toast({ title: "Error", description: "No se pudo guardar el impuesto.", variant: "destructive" })
+    } else {
+      toast({ title: "Guardado", description: `Impuesto configurado al ${value}%.` })
     }
   }
 
@@ -299,6 +318,50 @@ export default function SettingsPage() {
               <Button onClick={handleSaveCurrency} disabled={savingCurrency}>
                 {savingCurrency ? "Guardando..." : "Guardar moneda"}
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Percent className="h-4 w-4 text-muted-foreground" />
+                <CardTitle>Impuestos</CardTitle>
+              </div>
+              <CardDescription>
+                Porcentaje de impuesto aplicado en facturas y presupuestos. Usa 0 para no aplicar impuesto.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="tax-rate">Tasa de impuesto (%)</Label>
+                <div className="flex items-center gap-3 max-w-xs">
+                  <div className="relative flex-1">
+                    <Input
+                      id="tax-rate"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={taxRate}
+                      onChange={(e) => setTaxRate(e.target.value)}
+                      className="pr-8"
+                      placeholder="10"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                      %
+                    </span>
+                  </div>
+                  <Button onClick={handleSaveTax} disabled={savingTax}>
+                    {savingTax ? "Guardando..." : "Guardar"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Valor actual guardado:{" "}
+                  <span className="font-medium text-foreground">
+                    {clinic?.tax_rate ?? 10}%
+                  </span>
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
