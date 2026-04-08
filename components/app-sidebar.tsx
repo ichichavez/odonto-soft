@@ -22,6 +22,9 @@ import {
   Menu,
   X,
   TrendingDown,
+  ShieldCheck,
+  Building2,
+  CreditCard,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/context/auth-context"
@@ -48,9 +51,16 @@ const ADMIN_ITEMS = [
   { href: "/settings", label: "Configuración", icon: Settings },
 ]
 
+const SUPERADMIN_ITEMS = [
+  { href: "/superadmin", label: "Panel", icon: ShieldCheck },
+  { href: "/superadmin/clinics", label: "Clínicas", icon: Building2 },
+  { href: "/superadmin/users", label: "Usuarios", icon: Users },
+  { href: "/superadmin/billing", label: "Facturación", icon: CreditCard },
+]
+
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname()
-  const { user } = useAuth()
+  const { user, isSuperAdmin } = useAuth()
   const { clinic } = useClinic()
 
   const isActive = (href: string, exact?: boolean) => {
@@ -132,6 +142,36 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             </ul>
           </>
         )}
+
+        {/* Super Admin section */}
+        {isSuperAdmin && (
+          <>
+            <div className="mt-4 mb-1 px-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-500/80">
+                Super Admin
+              </p>
+            </div>
+            <ul className="space-y-0.5">
+              {SUPERADMIN_ITEMS.map(({ href, label, icon: Icon }) => (
+                <li key={href}>
+                  <Link
+                    href={href}
+                    onClick={onNavigate}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      isActive(href)
+                        ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-400"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                    )}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </nav>
 
       {/* User section at bottom */}
@@ -144,6 +184,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const pathname = usePathname()
+
+  // Superadmin pages have their own full layout
+  if (pathname?.startsWith("/superadmin")) return null
 
   return (
     <>

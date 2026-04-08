@@ -1,8 +1,8 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { createBrowserClient } from "@/lib/supabase"
+import { createBrowserClient, clearAllSupabaseData } from "@/lib/supabase"
 
 type UserWithRole = {
   id: string
@@ -19,20 +19,38 @@ type AuthContextType = {
   signIn: (email: string, password: string) => Promise<{ error: any | null }>
   signOut: () => Promise<void>
   isAuthenticated: boolean
+  isSuperAdmin: boolean
   hasPermission: (requiredRoles: string[]) => boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-// Limpia la sesión de Supabase del localStorage si está corrompida
-function clearSupabaseSession() {
+// Cargar perfil desde public.users
+async function fetchProfile(userId: string, email: string | null): Promise<UserWithRole> {
   try {
-    Object.keys(localStorage).forEach((key) => {
-      if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
-        localStorage.removeItem(key)
-      }
-    })
-  } catch {}
+    const supabase = createBrowserClient()
+    const { data } = await supabase
+      .from("users")
+      .select("name, role, clinic_id")
+      .eq("id", userId)
+      .single()
+
+    return {
+      id: userId,
+      email,
+      name: data?.name ?? email ?? "Usuario",
+      role: data?.role ?? "asistente",
+      clinic_id: data?.clinic_id ?? null,
+    }
+  } catch {
+    return {
+      id: userId,
+      email,
+      name: email ?? "Usuario",
+      role: "asistente",
+      clinic_id: null,
+    }
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -41,76 +59,98 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const router = useRouter()
   const pathname = usePathname()
-
-  // Cargar perfil desde public.users
-  const loadProfile = async (authUser: { id: string; email: string | null }) => {
-    try {
-      const supabase = createBrowserClient()
-      const { data } = await supabase
-        .from("users")
-        .select("name, role, clinic_id")
-        .eq("id", authUser.id)
-        .single()
-
-      setUser({
-        id: authUser.id,
-        email: authUser.email,
-        name: data?.name ?? authUser.email ?? "Usuario",
-        role: data?.role ?? "asistente",
-        clinic_id: data?.clinic_id ?? null,
-      })
-    } catch {
-      setUser({
-        id: authUser.id,
-        email: authUser.email,
-        name: authUser.email ?? "Usuario",
-        role: "asistente",
-        clinic_id: null,
-      })
-    }
-  }
+  // Evitar que el timeout dispare después del desmontaje
+  const mountedRef = useRef(true)
 
   useEffect(() => {
+    mountedRef.current = true
     let subscription: { unsubscribe: () => void } | null = null
 
+    const finish = (sessionData: any | null, userData: UserWithRole | null) => {
+      if (!mountedRef.current) return
+      setSession(sessionData)
+      setUser(userData)
+      setLoading(false)
+    }
+
     const init = async () => {
+      // ── Timeout de seguridad: si en 6 s no hay respuesta, limpiar y salir ──
+      const safetyTimer = setTimeout(() => {
+        if (!mountedRef.current) return
+        console.warn("[auth] Timeout esperando sesión — limpiando datos y redirigiendo a login")
+        clearAllSupabaseData()
+        finish(null, null)
+      }, 6000)
+
       try {
         const supabase = createBrowserClient()
 
+        // Intentar obtener la sesión actual (con refresh automático si aplica)
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+
+        if (sessionError) {
+          // Token inválido o refresh fallido — limpiar todo
+          clearAllSupabaseData()
+          clearTimeout(safetyTimer)
+          finish(null, null)
+          return
+        }
+
+        const currentSession = sessionData.session
+
+        if (currentSession?.user) {
+          const profile = await fetchProfile(
+            currentSession.user.id,
+            currentSession.user.email ?? null
+          )
+          clearTimeout(safetyTimer)
+          finish(currentSession, profile)
+        } else {
+          clearTimeout(safetyTimer)
+          finish(null, null)
+        }
+
+        // Suscribirse a cambios FUTUROS de sesión (sign in, sign out, token refresh)
         const { data: { subscription: sub } } = supabase.auth.onAuthStateChange(
-          async (event, currentSession) => {
-            try {
-              setSession(currentSession)
-              if (currentSession?.user) {
-                await loadProfile({
-                  id: currentSession.user.id,
-                  email: currentSession.user.email ?? null,
-                })
-              } else {
-                setUser(null)
-              }
-            } catch (err) {
-              console.error("Auth state change error:", err)
+          async (event, newSession) => {
+            if (!mountedRef.current) return
+
+            // Token no renovable → limpiar y forzar login
+            if (event === "SIGNED_OUT" || event === "TOKEN_REFRESHED" && !newSession) {
+              clearAllSupabaseData()
+              setSession(null)
               setUser(null)
-            } finally {
-              setLoading(false)
+              return
+            }
+
+            setSession(newSession)
+
+            if (newSession?.user) {
+              const profile = await fetchProfile(
+                newSession.user.id,
+                newSession.user.email ?? null
+              )
+              if (mountedRef.current) setUser(profile)
+            } else {
+              setUser(null)
             }
           }
         )
 
         subscription = sub
       } catch (err) {
-        // Sesión corrompida — limpiar y reiniciar
-        console.error("Auth init error, clearing session:", err)
-        clearSupabaseSession()
-        setUser(null)
-        setLoading(false)
+        // Error inesperado — limpiar y arrancar limpio
+        console.error("[auth] Error al inicializar sesión:", err)
+        clearAllSupabaseData()
+        clearTimeout(safetyTimer)
+        finish(null, null)
       }
     }
 
     init()
 
     return () => {
+      mountedRef.current = false
       subscription?.unsubscribe()
     }
   }, [])
@@ -125,7 +165,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     const supabase = createBrowserClient()
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    return { error }
+    if (error) return { error }
+    // El perfil se cargará vía onAuthStateChange
+    return { error: null }
   }
 
   const signOut = async () => {
@@ -133,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const supabase = createBrowserClient()
       await supabase.auth.signOut()
     } catch {}
-    clearSupabaseSession()
+    clearAllSupabaseData()
     setUser(null)
     setSession(null)
     router.push("/login")
@@ -161,6 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signOut,
         isAuthenticated: !!user,
+        isSuperAdmin: user?.role === "superadmin",
         hasPermission,
       }}
     >

@@ -25,6 +25,20 @@ export const createBrowserClient = () => {
   return browserClient
 }
 
+/**
+ * Elimina TODOS los datos de sesión de Supabase del localStorage
+ * y resetea el singleton para que el próximo createBrowserClient()
+ * arranque limpio. Llama esto cuando la sesión está corrompida o expirada.
+ */
+export function clearAllSupabaseData() {
+  try {
+    const keys = Object.keys(localStorage).filter((k) => k.startsWith("sb-"))
+    keys.forEach((k) => localStorage.removeItem(k))
+  } catch {}
+  // Resetear el singleton para que el próximo cliente arranque sin caché
+  browserClient = null
+}
+
 export const createServerClient = () => {
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-service-key"
   return createClient<Database>(SUPABASE_URL, serviceKey, {

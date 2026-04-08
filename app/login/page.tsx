@@ -2,15 +2,16 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { Eye, EyeOff, SmileIcon as Tooth } from "lucide-react"
+import { Eye, EyeOff, SmileIcon as Tooth, RotateCcw } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
+import { clearAllSupabaseData } from "@/lib/supabase"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -20,6 +21,12 @@ export default function LoginPage() {
   const router = useRouter()
   const { toast } = useToast()
   const { signIn } = useAuth()
+
+  // Al entrar en /login siempre limpiamos datos de sesión rancios.
+  // Esto evita que un token expirado bloquee un nuevo inicio de sesión.
+  useEffect(() => {
+    clearAllSupabaseData()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,21 +56,11 @@ export default function LoginPage() {
     }
   }
 
-  const handleDemoLogin = async () => {
-    setIsLoading(true)
-    try {
-      const { error } = await signIn("demo@odonto-soft.com", "Demo1234!")
-      if (error) throw error
-      router.push("/")
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
+  const handleHardReset = () => {
+    clearAllSupabaseData()
+    // Recargar la página para que el cliente de Supabase arranque completamente limpio
+    window.location.reload()
+    toast({ title: "Sesión limpiada", description: "Vuelve a iniciar sesión." })
   }
 
   return (
@@ -131,8 +128,17 @@ export default function LoginPage() {
               <span className="bg-card px-2 text-muted-foreground">o</span>
             </div>
           </div>
-          <Button variant="outline" className="w-full" onClick={handleDemoLogin} disabled={isLoading}>
-            Acceder con cuenta demo
+
+          {/* Botón de emergencia — limpia todo sin abrir DevTools */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-muted-foreground hover:text-foreground gap-2"
+            onClick={handleHardReset}
+            disabled={isLoading}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            ¿Problemas para ingresar? Limpiar sesión
           </Button>
         </CardFooter>
       </Card>
