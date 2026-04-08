@@ -170,7 +170,8 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       if (uploadError) return { url: null, error: uploadError }
 
       const { data } = supabase.storage.from("clinic-assets").getPublicUrl(path)
-      const url = data.publicUrl
+      // Agregar timestamp para romper caché del navegador en cada actualización
+      const url = `${data.publicUrl}?t=${Date.now()}`
 
       const { error: updateError } = await updateClinic({ logo_url: url })
       if (updateError) return { url: null, error: updateError }
@@ -195,7 +196,8 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       if (uploadError) return { url: null, error: uploadError }
 
       const { data } = supabase.storage.from("clinic-assets").getPublicUrl(path)
-      const url = data.publicUrl
+      // Agregar timestamp para romper caché del navegador en cada actualización
+      const url = `${data.publicUrl}?t=${Date.now()}`
 
       const { error: updateError } = await updateClinic({ signature_url: url })
       if (updateError) return { url: null, error: updateError }
