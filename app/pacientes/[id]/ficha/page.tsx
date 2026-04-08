@@ -20,7 +20,7 @@ import { CheckboxGroup } from "@/components/dental-record/checkbox-group"
 import { RadioGroupField } from "@/components/dental-record/radio-group-field"
 import {
   ArrowLeft, Save, Clock, Baby, User2, ClipboardList, Stethoscope,
-  AlertCircle, FileSignature, History
+  AlertCircle, FileSignature, History, Plus, Trash2
 } from "lucide-react"
 import Link from "next/link"
 import type {
@@ -137,6 +137,9 @@ export default function FichaOdontologicaPage() {
   const [medicalHistory, setMedicalHistory] = useState<MedicalHistory>(defaultMedicalHistory())
   const [dentalHistory, setDentalHistory] = useState<DentalHistory>(defaultDentalHistory())
 
+  // Tratamientos realizados
+  const [treatmentsDone, setTreatmentsDone] = useState<{ date: string; tooth: string; description: string }[]>([])
+
   // Consentimiento
   const [signedByName, setSignedByName] = useState("")
   const [signedByCi, setSignedByCi] = useState("")
@@ -232,6 +235,9 @@ export default function FichaOdontologicaPage() {
           const d = record.dental_history as any
           setDentalHistory({ ...defaultDentalHistory(), ...d })
         }
+        if ((record as any).treatments_done) {
+          setTreatmentsDone((record as any).treatments_done as any[])
+        }
       }
     } catch (err) {
       console.error(err)
@@ -269,7 +275,8 @@ export default function FichaOdontologicaPage() {
           habits: habits,
           medical_history: medicalHistory,
           dental_history: patientType === "adulto" ? dentalHistory : null,
-        },
+          treatments_done: treatmentsDone,
+        } as any,
         user?.name ?? "Sistema",
         user?.id
       )
@@ -431,6 +438,7 @@ export default function FichaOdontologicaPage() {
           {patientType === "nino" && (
             <TabsTrigger value="dieta" className="gap-1.5 text-xs">Dieta</TabsTrigger>
           )}
+          <TabsTrigger value="tratamientos" className="gap-1.5 text-xs"><ClipboardList className="h-3.5 w-3.5" />Tratamientos</TabsTrigger>
           <TabsTrigger value="consentimiento" className="gap-1.5 text-xs"><FileSignature className="h-3.5 w-3.5" />Consentimiento</TabsTrigger>
         </TabsList>
 
@@ -1135,6 +1143,90 @@ export default function FichaOdontologicaPage() {
             </FormSection>
           </TabsContent>
         )}
+
+        {/* ── TAB: TRATAMIENTOS REALIZADOS ── */}
+        <TabsContent value="tratamientos" className="space-y-4">
+          <FormSection title="Tratamientos Realizados">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 pr-3 text-muted-foreground font-medium w-32">Fecha</th>
+                    <th className="text-left py-2 pr-3 text-muted-foreground font-medium w-24">Diente</th>
+                    <th className="text-left py-2 pr-3 text-muted-foreground font-medium">Tratamiento</th>
+                    <th className="w-8"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {treatmentsDone.map((row, i) => (
+                    <tr key={i}>
+                      <td className="py-2 pr-3">
+                        <Input
+                          type="date"
+                          value={row.date}
+                          onChange={(e) =>
+                            setTreatmentsDone((prev) =>
+                              prev.map((r, idx) => idx === i ? { ...r, date: e.target.value } : r)
+                            )
+                          }
+                          className="h-7 text-xs"
+                        />
+                      </td>
+                      <td className="py-2 pr-3">
+                        <Input
+                          value={row.tooth}
+                          onChange={(e) =>
+                            setTreatmentsDone((prev) =>
+                              prev.map((r, idx) => idx === i ? { ...r, tooth: e.target.value } : r)
+                            )
+                          }
+                          placeholder="Ej: 21"
+                          className="h-7 text-xs"
+                        />
+                      </td>
+                      <td className="py-2 pr-3">
+                        <Input
+                          value={row.description}
+                          onChange={(e) =>
+                            setTreatmentsDone((prev) =>
+                              prev.map((r, idx) => idx === i ? { ...r, description: e.target.value } : r)
+                            )
+                          }
+                          placeholder="Descripción del tratamiento"
+                          className="h-7 text-xs"
+                        />
+                      </td>
+                      <td className="py-2">
+                        <button
+                          type="button"
+                          onClick={() => setTreatmentsDone((prev) => prev.filter((_, idx) => idx !== i))}
+                          className="text-muted-foreground hover:text-destructive transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={() =>
+                setTreatmentsDone((prev) => [
+                  ...prev,
+                  { date: new Date().toISOString().slice(0, 10), tooth: "", description: "" },
+                ])
+              }
+            >
+              <Plus className="h-4 w-4" />
+              Agregar tratamiento
+            </Button>
+          </FormSection>
+        </TabsContent>
 
         {/* ── TAB: CONSENTIMIENTO ── */}
         <TabsContent value="consentimiento" className="space-y-4">

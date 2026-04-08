@@ -27,6 +27,7 @@ export default function NuevaRecetaPage() {
 
   const [form, setForm] = useState({
     date: new Date().toISOString().split("T")[0],
+    diagnosis: "",
     prescription_text: "",
     instructions_text: "",
     signed_by_name: "",
@@ -35,6 +36,12 @@ export default function NuevaRecetaPage() {
   useEffect(() => {
     patientService.getById(params.id).then(setPatient).catch(console.error)
   }, [params.id])
+
+  useEffect(() => {
+    if (clinic?.doctor_name) {
+      setForm((prev) => ({ ...prev, signed_by_name: clinic.doctor_name ?? "" }))
+    }
+  }, [clinic?.doctor_name])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -49,6 +56,7 @@ export default function NuevaRecetaPage() {
         clinic_id: clinic?.id ?? null,
         created_by: user?.id ?? null,
         date: form.date,
+        diagnosis: form.diagnosis || null,
         prescription_text: form.prescription_text || null,
         instructions_text: form.instructions_text || null,
         signed_by_name: form.signed_by_name,
@@ -113,6 +121,17 @@ export default function NuevaRecetaPage() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="diagnostico">Dx (Diagnóstico)</Label>
+              <Textarea
+                id="diagnostico"
+                rows={3}
+                value={form.diagnosis}
+                onChange={(e) => setForm({ ...form, diagnosis: e.target.value })}
+                placeholder="Diagnóstico del paciente..."
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="receta">Rp. (Receta médica)</Label>
               <Textarea
                 id="receta"
@@ -124,7 +143,7 @@ export default function NuevaRecetaPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="indicaciones">Indicaciones post-operatorias</Label>
+              <Label htmlFor="indicaciones">Indicaciones</Label>
               <Textarea
                 id="indicaciones"
                 rows={5}

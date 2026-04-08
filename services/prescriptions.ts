@@ -6,6 +6,7 @@ export interface Prescription {
   clinic_id?: string | null
   created_by?: string | null
   date: string
+  diagnosis?: string | null
   prescription_text?: string | null
   instructions_text?: string | null
   signed_by_name: string

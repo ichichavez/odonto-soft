@@ -189,6 +189,30 @@ export const patientService = {
     return true
   },
 
+  // Subir foto de perfil del paciente
+  async uploadPhoto(patientId: string, clinicId: string, file: File): Promise<string> {
+    const supabase = createBrowserClient()
+    const ext = file.name.split(".").pop() ?? "jpg"
+    const path = `clinic-assets/${clinicId}/patients/${patientId}.${ext}`
+
+    const { error: uploadError } = await supabase.storage
+      .from("clinic-assets")
+      .upload(path, file, { upsert: true, contentType: file.type })
+
+    if (uploadError) throw uploadError
+
+    const { data: urlData } = supabase.storage.from("clinic-assets").getPublicUrl(path)
+    const avatarUrl = urlData.publicUrl
+
+    const { error: updateError } = await supabase
+      .from("patients")
+      .update({ avatar_url: avatarUrl })
+      .eq("id", patientId)
+
+    if (updateError) throw updateError
+    return avatarUrl
+  },
+
   // Buscar pacientes
   async search(query: string) {
     const supabase = createBrowserClient()

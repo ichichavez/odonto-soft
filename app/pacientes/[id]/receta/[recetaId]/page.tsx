@@ -125,6 +125,16 @@ export default function VerRecetaPage() {
               </div>
             </div>
 
+            {/* Dx */}
+            {rx.diagnosis && (
+              <div>
+                <p className="font-bold mb-1">Dx.</p>
+                <div className="pl-4 whitespace-pre-wrap text-sm border-l-2 border-gray-300">
+                  {rx.diagnosis}
+                </div>
+              </div>
+            )}
+
             {/* Rp. */}
             {rx.prescription_text && (
               <div>
@@ -138,12 +148,17 @@ export default function VerRecetaPage() {
             {/* Indicaciones */}
             {rx.instructions_text && (
               <div>
-                <p className="font-bold mb-1">Indicaciones post-operatorias</p>
+                <p className="font-bold mb-1">Indicaciones</p>
                 <div className="pl-4 whitespace-pre-wrap text-sm border-l-2 border-gray-300">
                   {rx.instructions_text}
                 </div>
               </div>
             )}
+
+            {/* Validez */}
+            <p className="text-xs text-gray-500 italic">
+              Válido por 1 mes a partir de la fecha de emisión.
+            </p>
 
             {/* Firma */}
             <div className="pt-6 border-t text-center text-sm">

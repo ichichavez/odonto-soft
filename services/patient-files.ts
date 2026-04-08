@@ -3,10 +3,11 @@ import type { PatientFile, PatientFileInsert } from "@/types/database"
 
 export type FileType = PatientFile["file_type"]
 
-export const FILE_TYPE_LABELS: Record<FileType, string> = {
+export const FILE_TYPE_LABELS: Record<string, string> = {
   radiografia: "Radiografías",
   foto_intraoral: "Fotos Intraorales",
   foto_extraoral: "Fotos Extraorales",
+  interconsulta: "Interconsulta",
   documento: "Documentos",
   otro: "Otros",
 }

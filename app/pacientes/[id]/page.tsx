@@ -3,10 +3,12 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Baby, Calendar, ClipboardList, FileText, Pencil, Pill, Stethoscope, User } from "lucide-react"
+import { ArrowLeft, Baby, Calendar, Camera, ClipboardList, Download, FileText, Pencil, Pill, Stethoscope, User } from "lucide-react"
 import Link from "next/link"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import Image from "next/image"
 import { patientService } from "@/services/patients"
+import { dentalRecordService } from "@/services/dental-records"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
@@ -15,11 +17,13 @@ import { budgetService } from "@/services/budgets"
 import { PatientGallery } from "@/components/patient-gallery"
 import { useRouter, useParams } from "next/navigation"
 import { isValidUUID } from "@/lib/utils"
+import { useClinic } from "@/context/clinic-context"
 
 export default function PacienteDetallePage() {
   const params = useParams() as { id: string }
   const { toast } = useToast()
   const router = useRouter()
+  const { clinic } = useClinic()
   const [patient, setPatient] = useState<any>(null)
   const [appointments, setAppointments] = useState<any[]>([])
   const [budgets, setBudgets] = useState<any[]>([])
@@ -27,6 +31,9 @@ export default function PacienteDetallePage() {
   const [appointmentsLoading, setAppointmentsLoading] = useState(true)
   const [budgetsLoading, setBudgetsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+  const [dentalRecord, setDentalRecord] = useState<any>(null)
 
   useEffect(() => {
     // Verificar si el ID es válido antes de hacer la consulta
@@ -58,6 +65,12 @@ export default function PacienteDetallePage() {
 
     fetchPatient()
   }, [params.id, toast])
+
+  // Cargar ficha odontológica (para antecedentes médicos)
+  useEffect(() => {
+    if (!patient || !isValidUUID(params.id)) return
+    dentalRecordService.getByPatient(params.id).then(setDentalRecord).catch(() => null)
+  }, [patient, params.id])
 
   // Cargar citas del paciente
   useEffect(() => {
@@ -121,6 +134,23 @@ export default function PacienteDetallePage() {
         return <Badge className="bg-blue-500">Completada</Badge>
       default:
         return <Badge className="bg-gray-500">Desconocido</Badge>
+    }
+  }
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !clinic?.id) return
+    setUploadingPhoto(true)
+    try {
+      const url = await patientService.uploadPhoto(params.id, clinic.id, file)
+      setPatient((prev: any) => ({ ...prev, avatar_url: url }))
+      toast({ title: "Foto actualizada", description: "La foto de perfil fue guardada." })
+    } catch (err) {
+      console.error(err)
+      toast({ title: "Error", description: "No se pudo subir la foto", variant: "destructive" })
+    } finally {
+      setUploadingPhoto(false)
+      if (photoInputRef.current) photoInputRef.current.value = ""
     }
   }
 
@@ -203,6 +233,42 @@ export default function PacienteDetallePage() {
           </Link>
         </Button>
         <div className="flex items-center gap-3">
+          {/* Avatar */}
+          <div className="relative group shrink-0">
+            <div
+              className="h-[72px] w-[72px] rounded-full overflow-hidden bg-muted flex items-center justify-center cursor-pointer border-2 border-border"
+              onClick={() => !uploadingPhoto && photoInputRef.current?.click()}
+            >
+              {patient.avatar_url ? (
+                <Image
+                  src={patient.avatar_url}
+                  alt="Foto de perfil"
+                  width={72}
+                  height={72}
+                  className="object-cover w-full h-full"
+                />
+              ) : (
+                <span className="text-xl font-bold text-muted-foreground select-none">
+                  {patient.first_name?.[0]}{patient.last_name?.[0]}
+                </span>
+              )}
+              <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                {uploadingPhoto ? (
+                  <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Camera className="h-5 w-5 text-white" />
+                )}
+              </div>
+            </div>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoUpload}
+            />
+          </div>
+
           <h1 className="text-2xl font-bold">
             {patient.first_name} {patient.last_name}
           </h1>
@@ -217,6 +283,18 @@ export default function PacienteDetallePage() {
           )}
         </div>
         <div className="ml-auto flex gap-2 flex-wrap">
+          <Button variant="outline" asChild>
+            <Link href={`/pacientes/${params.id}/exportar/historial`} className="flex items-center gap-2">
+              <Download className="h-4 w-4" />
+              Historial
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href={`/pacientes/${params.id}/exportar/completo`} className="flex items-center gap-2">
+              <Download className="h-4 w-4" />
+              Datos completos
+            </Link>
+          </Button>
           <Button variant="outline" asChild>
             <Link href={`/pacientes/${params.id}/plan-tratamiento`} className="flex items-center gap-2">
               <Stethoscope className="h-4 w-4" />
@@ -361,56 +439,7 @@ export default function PacienteDetallePage() {
         </TabsContent>
 
         <TabsContent value="historial" className="mt-6 space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Historial Médico</CardTitle>
-              <CardDescription>Información médica relevante</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Alergias</h3>
-                <p className="text-base">{patient.medical_records?.[0]?.allergies || "Ninguna registrada"}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Medicamentos</h3>
-                <p className="text-base">{patient.medical_records?.[0]?.medications || "Ninguno registrado"}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Enfermedades Crónicas</h3>
-                <p className="text-base">{patient.medical_records?.[0]?.chronic_diseases || "Ninguna registrada"}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Historial Dental</CardTitle>
-              <CardDescription>Información sobre la salud dental</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Última Visita</h3>
-                <p className="text-base">
-                  {patient.dental_records?.[0]?.last_visit
-                    ? formatDate(patient.dental_records[0].last_visit)
-                    : "No registrada"}
-                </p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Tratamientos Previos</h3>
-                <p className="text-base">{patient.dental_records?.[0]?.previous_treatments || "Ninguno registrado"}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Hábitos de Higiene</h3>
-                <p className="text-base">{patient.dental_records?.[0]?.hygiene_habits || "No registrados"}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground">Observaciones</h3>
-                <p className="text-base">{patient.dental_records?.[0]?.observations || "Ninguna"}</p>
-              </div>
-            </CardContent>
-          </Card>
-
+          <MedicalHistoryCard dentalRecord={dentalRecord} patientId={params.id} />
           {/* Galería Dental */}
           {isValidUUID(params.id) && <PatientGallery patientId={params.id} />}
         </TabsContent>
@@ -529,6 +558,177 @@ export default function PacienteDetallePage() {
           </Card>
         </TabsContent>
       </Tabs>
+    </div>
+  )
+}
+
+// ── Componente de antecedentes médicos (formato ficha) ──────────────
+
+const DISEASE_LABELS: Record<string, string> = {
+  tuberculosis: "Tuberculosis", leprosy: "Lepra", cardiac: "Enf. Cardíacas",
+  sexual_diseases: "Enf. Sexuales", asthma: "Asma", hepatitis: "Hepatitis",
+  hypertension: "Hipertensión Arterial", malaria: "Malaria", allergy: "Alergia",
+  aids: "SIDA", chagas: "Enf. de Chagas", psychiatric: "Disturbios Psíquicos",
+  rheumatic_fever: "Fiebre Reumática", seizures: "Convulsiones", epilepsy: "Epilepsia",
+  fainting: "Desmayos", sinusitis: "Sinusitis", coagulation_problems: "Probl. de coagulación",
+  anemia: "Anemia", diabetes: "Diabetes", hemophilia: "Hemofilia", ulcers: "Úlceras",
+}
+
+function CheckBadge({ label }: { label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 text-destructive text-xs px-2 py-0.5 font-medium">
+      <span className="h-1.5 w-1.5 rounded-full bg-destructive inline-block" />
+      {label}
+    </span>
+  )
+}
+
+function InfoRow({ label, value }: { label: string; value?: string | null }) {
+  if (!value) return null
+  return (
+    <div className="flex gap-2 text-sm">
+      <span className="text-muted-foreground shrink-0 w-44">{label}</span>
+      <span className="font-medium">{value}</span>
+    </div>
+  )
+}
+
+function MedicalHistoryCard({ dentalRecord, patientId }: { dentalRecord: any; patientId: string }) {
+  const med: any = dentalRecord?.medical_history ?? {}
+  const dent: any = dentalRecord?.dental_history ?? {}
+  const hasData = dentalRecord !== null
+
+  const activeDiseaseTags = Object.entries(med.diseases ?? {})
+    .filter(([k, v]) => v === true && DISEASE_LABELS[k])
+    .map(([k]) => DISEASE_LABELS[k])
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between pb-3">
+          <div>
+            <CardTitle>Antecedentes Médicos</CardTitle>
+            <CardDescription>
+              {hasData ? "Datos cargados desde la ficha odontológica" : "Sin datos registrados en la ficha"}
+            </CardDescription>
+          </div>
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/pacientes/${patientId}/ficha`} className="flex items-center gap-2">
+              <ClipboardList className="h-3.5 w-3.5" />
+              {hasData ? "Editar en ficha" : "Completar ficha"}
+            </Link>
+          </Button>
+        </CardHeader>
+
+        {!hasData ? (
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Los antecedentes médicos se registran en la{" "}
+              <Link href={`/pacientes/${patientId}/ficha`} className="text-primary underline underline-offset-2">
+                ficha odontológica
+              </Link>
+              . Aún no hay datos cargados.
+            </p>
+          </CardContent>
+        ) : (
+          <CardContent className="space-y-5">
+
+            {/* Tratamiento médico / medicamentos */}
+            <div className="space-y-1.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tratamiento y medicación</h3>
+              <div className="space-y-1">
+                <InfoRow
+                  label="Bajo tratamiento médico"
+                  value={med.under_medical_treatment ? (med.treatment_duration || "Sí") : "No"}
+                />
+                <InfoRow
+                  label="Toma medicamentos"
+                  value={med.taking_medication ? (med.medication_detail || "Sí") : "No"}
+                />
+                <InfoRow
+                  label="Tolera anestesia"
+                  value={
+                    med.never_had_anesthesia
+                      ? "Nunca le aplicaron"
+                      : med.tolerates_anesthesia === false
+                      ? "No tolera"
+                      : "Sí"
+                  }
+                />
+              </div>
+            </div>
+
+            {/* Enfermedades */}
+            <div className="space-y-1.5">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Enfermedades</h3>
+              {activeDiseaseTags.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {activeDiseaseTags.map((label) => (
+                    <CheckBadge key={label} label={label} />
+                  ))}
+                  {med.diseases?.other && med.diseases?.other_detail && (
+                    <CheckBadge label={`Otro: ${med.diseases.other_detail}`} />
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Ninguna registrada</p>
+              )}
+            </div>
+
+            {/* Otros antecedentes */}
+            {(med.had_surgery || med.bleeds_excessively || med.smokes || med.drinks_alcohol || med.pregnant) && (
+              <div className="space-y-1.5">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Otros antecedentes</h3>
+                <div className="space-y-1">
+                  {med.had_surgery && (
+                    <InfoRow label="Cirugías previas" value={med.surgery_detail || "Sí"} />
+                  )}
+                  {med.bleeds_excessively && (
+                    <InfoRow label="Sangrado excesivo" value="Sí" />
+                  )}
+                  {med.smokes && (
+                    <InfoRow
+                      label="Tabaquismo"
+                      value={[med.smoking_duration, med.cigarettes_per_day && `${med.cigarettes_per_day} cig/día`].filter(Boolean).join(", ") || "Sí"}
+                    />
+                  )}
+                  {med.drinks_alcohol && (
+                    <InfoRow label="Alcohol" value={med.alcohol_duration || "Sí"} />
+                  )}
+                  {med.pregnant && (
+                    <InfoRow label="Embarazo" value={med.pregnancy_duration || "Sí"} />
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Historia odontológica */}
+      {dent && Object.keys(dent).length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle>Historia Odontológica</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1">
+            <InfoRow label="Última visita al odontólogo" value={dent.last_dentist_visit} />
+            {dent.has_tooth_loss && (
+              <InfoRow label="Pérdida dentaria" value={dent.tooth_loss_reason || "Sí"} />
+            )}
+            <InfoRow label="Frecuencia de cepillado" value={dent.brushing_frequency} />
+            <InfoRow
+              label="Higiene dental"
+              value={[
+                dent.hygiene_brush && "Cepillo",
+                dent.hygiene_floss && "Hilo dental",
+                dent.hygiene_mouthwash && "Enjuague",
+                dent.hygiene_other && "Otros",
+              ].filter(Boolean).join(", ") || null}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

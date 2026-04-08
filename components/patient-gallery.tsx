@@ -18,7 +18,7 @@ import {
 import { Upload, Trash2, ZoomIn, FileText, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const FILE_TYPES: FileType[] = ["radiografia", "foto_intraoral", "foto_extraoral", "documento", "otro"]
+const FILE_TYPES: FileType[] = ["radiografia", "foto_intraoral", "foto_extraoral", "interconsulta", "documento", "otro"]
 
 function isImage(url: string) {
   return /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(url)
