@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Baby, Calendar, Camera, ClipboardList, Download, FileText, Pencil, Pill, Stethoscope, User } from "lucide-react"
+import { ArrowLeft, Baby, Calendar, Camera, ClipboardList, Download, FileText, Grid3X3, Pencil, Pill, Stethoscope, User } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
@@ -305,6 +305,12 @@ export default function PacienteDetallePage() {
             <Link href={`/pacientes/${params.id}/receta`} className="flex items-center gap-2">
               <Pill className="h-4 w-4" />
               Receta
+            </Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href={`/pacientes/${params.id}/odontograma`} className="flex items-center gap-2">
+              <Grid3X3 className="h-4 w-4" />
+              Odontograma
             </Link>
           </Button>
           <Button variant="outline" asChild>
