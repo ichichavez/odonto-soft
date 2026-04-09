@@ -6,13 +6,15 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, FilePlus, FileText } from "lucide-react"
+import { ArrowLeft, FilePlus, FileText, MessageCircle } from "lucide-react"
 import { patientService } from "@/services/patients"
 import { prescriptionService, type Prescription } from "@/services/prescriptions"
+import { useClinic } from "@/context/clinic-context"
 
 export default function RecetasPage() {
   const params = useParams() as { id: string }
   const { toast } = useToast()
+  const { clinic } = useClinic()
   const [patient, setPatient] = useState<any>(null)
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
   const [loading, setLoading] = useState(true)
@@ -37,6 +39,26 @@ export default function RecetasPage() {
   }, [params.id, toast])
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString("es-ES")
+
+  const buildWhatsAppUrl = (rx: Prescription) => {
+    if (!patient?.phone) return null
+    const phone = patient.phone.replace(/\D/g, "")
+    const patientName = `${patient.first_name} ${patient.last_name}`
+    const clinicName = clinic?.name ?? "Clínica Odontológica"
+    const doctorName = clinic?.doctor_name ?? rx.signed_by_name
+    const lines: string[] = []
+    lines.push(`🦷 *Receta Odontológica*`)
+    lines.push(`*${clinicName}*`)
+    if (doctorName) lines.push(`Dr/a. ${doctorName}`)
+    lines.push(``)
+    lines.push(`*Paciente:* ${patientName}`)
+    lines.push(`*Fecha:* ${new Date(rx.date).toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" })}`)
+    if (rx.diagnosis) { lines.push(``); lines.push(`*Dx.*`); lines.push(rx.diagnosis) }
+    if (rx.prescription_text) { lines.push(``); lines.push(`*Rp.*`); lines.push(rx.prescription_text) }
+    if (rx.instructions_text) { lines.push(``); lines.push(`*Indicaciones*`); lines.push(rx.instructions_text) }
+    lines.push(``); lines.push(`_Válido por 1 mes a partir de la fecha de emisión._`)
+    return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join("\n"))}`
+  }
 
   return (
     <div className="flex flex-col p-6 space-y-6">
@@ -94,9 +116,22 @@ export default function RecetasPage() {
                       </p>
                     )}
                   </div>
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href={`/pacientes/${params.id}/receta/${rx.id}`}>Ver / Imprimir</Link>
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const waUrl = buildWhatsAppUrl(rx)
+                      return waUrl ? (
+                        <Button variant="outline" size="sm" className="text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700" asChild>
+                          <a href={waUrl} target="_blank" rel="noopener noreferrer">
+                            <MessageCircle className="h-3.5 w-3.5 mr-1" />
+                            WA
+                          </a>
+                        </Button>
+                      ) : null
+                    })()}
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/pacientes/${params.id}/receta/${rx.id}`}>Ver / Imprimir</Link>
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

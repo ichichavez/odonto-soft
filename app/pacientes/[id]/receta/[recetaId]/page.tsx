@@ -5,7 +5,7 @@ import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
-import { ArrowLeft, Printer } from "lucide-react"
+import { ArrowLeft, Printer, MessageCircle } from "lucide-react"
 import Image from "next/image"
 import { patientService } from "@/services/patients"
 import { prescriptionService, type Prescription } from "@/services/prescriptions"
@@ -41,6 +41,42 @@ export default function VerRecetaPage() {
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" })
 
+  const buildWhatsAppUrl = () => {
+    if (!patient?.phone || !rx) return null
+
+    const phone = patient.phone.replace(/\D/g, "")
+    const patientName = `${patient.first_name} ${patient.last_name}`
+    const clinicName = clinic?.name ?? "Clínica Odontológica"
+    const doctorName = clinic?.doctor_name ?? rx.signed_by_name
+
+    const lines: string[] = []
+    lines.push(`🦷 *Receta Odontológica*`)
+    lines.push(`*${clinicName}*`)
+    if (doctorName) lines.push(`Dr/a. ${doctorName}`)
+    lines.push(``)
+    lines.push(`*Paciente:* ${patientName}`)
+    lines.push(`*Fecha:* ${formatDate(rx.date)}`)
+    if (rx.diagnosis) {
+      lines.push(``)
+      lines.push(`*Dx.*`)
+      lines.push(rx.diagnosis)
+    }
+    if (rx.prescription_text) {
+      lines.push(``)
+      lines.push(`*Rp.*`)
+      lines.push(rx.prescription_text)
+    }
+    if (rx.instructions_text) {
+      lines.push(``)
+      lines.push(`*Indicaciones*`)
+      lines.push(rx.instructions_text)
+    }
+    lines.push(``)
+    lines.push(`_Válido por 1 mes a partir de la fecha de emisión._`)
+
+    return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join("\n"))}`
+  }
+
   return (
     <>
       <style>{`
@@ -62,7 +98,31 @@ export default function VerRecetaPage() {
             </Link>
           </Button>
           <h1 className="text-2xl font-bold">Receta</h1>
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-2">
+            {(() => {
+              const waUrl = buildWhatsAppUrl()
+              return (
+                <Button
+                  variant="outline"
+                  asChild={!!waUrl}
+                  disabled={!waUrl}
+                  title={waUrl ? "Enviar por WhatsApp" : "El paciente no tiene teléfono registrado"}
+                  className="flex items-center gap-2 text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700 disabled:opacity-40"
+                >
+                  {waUrl ? (
+                    <a href={waUrl} target="_blank" rel="noopener noreferrer">
+                      <MessageCircle className="h-4 w-4" />
+                      WhatsApp
+                    </a>
+                  ) : (
+                    <>
+                      <MessageCircle className="h-4 w-4" />
+                      WhatsApp
+                    </>
+                  )}
+                </Button>
+              )
+            })()}
             <Button variant="outline" onClick={() => window.print()} className="flex items-center gap-2">
               <Printer className="h-4 w-4" />
               Imprimir
