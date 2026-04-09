@@ -17,6 +17,7 @@ import { budgetService } from "@/services/budgets"
 import { treatmentService } from "@/services/treatments"
 import { patientService } from "@/services/patients"
 import { useAuth } from "@/context/auth-context"
+import { useClinic } from "@/context/clinic-context"
 import { Skeleton } from "@/components/ui/skeleton"
 import { RoleGuard } from "@/components/role-guard"
 
@@ -35,6 +36,7 @@ export default function EditarPresupuestoPage() {
   const { toast } = useToast()
   const router = useRouter()
   const { user } = useAuth()
+  const { clinic } = useClinic()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [loading, setLoading] = useState(true)
   const [treatments, setTreatments] = useState<any[]>([])
@@ -145,7 +147,8 @@ export default function EditarPresupuestoPage() {
   }
 
   const calcularImpuestos = (subtotal: number) => {
-    return subtotal * 0.16 // 16% de IVA
+    const rate = clinic?.tax_rate ?? 10
+    return subtotal * (rate / 100)
   }
 
   const calcularTotal = () => {
@@ -188,7 +191,7 @@ export default function EditarPresupuestoPage() {
         notes: budgetData.notes,
         status: budgetData.status as any,
         subtotal,
-        tax_rate: 16,
+        tax_rate: clinic?.tax_rate ?? 10,
         tax_amount: taxAmount,
         total,
         updated_at: new Date().toISOString(),

@@ -15,6 +15,7 @@ import Link from "next/link"
 import { inventoryService } from "@/services/inventory"
 import { invoiceService } from "@/services/invoices"
 import { useAuth } from "@/context/auth-context"
+import { useClinic } from "@/context/clinic-context"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 
@@ -22,6 +23,7 @@ export default function VentaMaterialesPage() {
   const { toast } = useToast()
   const router = useRouter()
   const { user } = useAuth()
+  const { clinic } = useClinic()
 
   const [materials, setMaterials] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
@@ -50,7 +52,12 @@ export default function VentaMaterialesPage() {
   // Datos de la venta
   const [selectedPatient, setSelectedPatient] = useState("")
   const [notes, setNotes] = useState("")
-  const [taxRate, setTaxRate] = useState(21) // IVA por defecto
+  const [taxRate, setTaxRate] = useState(10)
+
+  // Sync tax rate from clinic settings
+  useEffect(() => {
+    if (clinic?.tax_rate !== undefined) setTaxRate(clinic.tax_rate)
+  }, [clinic?.tax_rate])
 
   useEffect(() => {
     const fetchData = async () => {

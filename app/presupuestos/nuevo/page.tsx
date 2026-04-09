@@ -78,8 +78,9 @@ export default function NuevoPresupuestoPage() {
     }))
   }
 
+  const taxRate = clinic?.tax_rate ?? 10
   const subtotal = items.reduce((s, i) => s + i.total, 0)
-  const taxAmount = subtotal * 0.16
+  const taxAmount = subtotal * (taxRate / 100)
   const total = subtotal + taxAmount
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -105,7 +106,7 @@ export default function NuevoPresupuestoPage() {
           status: form.status as any,
           notes: form.notes || null,
           subtotal,
-          tax_rate: 16,
+          tax_rate: taxRate,
           tax_amount: taxAmount,
           total,
         },

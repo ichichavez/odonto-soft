@@ -17,6 +17,7 @@ import Link from "next/link"
 import { inventoryService } from "@/services/inventory"
 import { invoiceService } from "@/services/invoices"
 import { useAuth } from "@/context/auth-context"
+import { useClinic } from "@/context/clinic-context"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { createBrowserClient } from "@/lib/supabase"
@@ -25,6 +26,7 @@ export default function NuevaFacturaPage() {
   const { toast } = useToast()
   const router = useRouter()
   const { user } = useAuth()
+  const { clinic } = useClinic()
 
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -53,7 +55,12 @@ export default function NuevaFacturaPage() {
   })
   const [paymentMethod, setPaymentMethod] = useState("efectivo")
   const [notes, setNotes] = useState("")
-  const [taxRate, setTaxRate] = useState(21) // IVA por defecto
+  const [taxRate, setTaxRate] = useState(10)
+
+  // Sync tax rate from clinic settings
+  useEffect(() => {
+    if (clinic?.tax_rate !== undefined) setTaxRate(clinic.tax_rate)
+  }, [clinic?.tax_rate])
 
   // Items de la factura
   const [invoiceItems, setInvoiceItems] = useState<
