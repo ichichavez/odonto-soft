@@ -1,8 +1,22 @@
 import Stripe from "stripe"
 
+let _stripe: Stripe | null = null
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", {
-  apiVersion: "2024-12-18.acacia" as any,
+export function getStripe(): Stripe {
+  if (!_stripe) {
+    const key = process.env.STRIPE_SECRET_KEY
+    if (!key) throw new Error("STRIPE_SECRET_KEY no está configurada")
+    _stripe = new Stripe(key, { apiVersion: "2024-12-18.acacia" as any })
+  }
+  return _stripe
+}
+
+/** @deprecated use getStripe() */
+export const stripe = new Proxy({} as Stripe, {
+  get(_target, prop) {
+    return (getStripe() as any)[prop]
+  },
 })
 
 /**
