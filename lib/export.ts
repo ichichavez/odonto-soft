@@ -10,13 +10,11 @@ export function exportToExcel(
   columns: ExportColumn[],
   filename: string
 ) {
-  // Construir filas con los headers correctos
   const rows = data.map(row =>
     Object.fromEntries(columns.map(col => [col.header, row[col.key] ?? ""]))
   )
   const ws = XLSX.utils.json_to_sheet(rows, { header: columns.map(c => c.header) })
 
-  // Ajustar ancho de columnas automáticamente
   const colWidths = columns.map(col => ({
     wch: Math.max(
       col.header.length,
@@ -30,55 +28,99 @@ export function exportToExcel(
   XLSX.writeFile(wb, `${filename}.xlsx`)
 }
 
+export interface PdfOptions {
+  /** Nombre de la clínica — aparece en el encabezado */
+  clinicName?: string
+  /** Filas de totales que se muestran al pie: [{ label, value }] */
+  totals?: Array<{ label: string; value: string }>
+}
+
 /**
- * Exporta a PDF usando la impresión del navegador con tabla HTML.
- * Genera un iframe oculto, imprime y lo elimina.
+ * Genera un PDF real con jsPDF + autoTable y lo descarga directamente.
  */
-export function exportToPDF(
+export async function exportToPDF(
   data: Record<string, any>[],
   columns: ExportColumn[],
-  title: string
+  title: string,
+  options: PdfOptions = {}
 ) {
-  const rows = data.map(row =>
-    `<tr>${columns.map(col => `<td>${row[col.key] ?? ""}</td>`).join("")}</tr>`
-  ).join("")
+  // Importación dinámica para no aumentar el bundle inicial
+  const { default: jsPDF } = await import("jspdf")
+  const { default: autoTable } = await import("jspdf-autotable")
 
-  const html = `
-    <!DOCTYPE html>
-    <html lang="es">
-    <head>
-      <meta charset="UTF-8">
-      <title>${title}</title>
-      <style>
-        body { font-family: Arial, sans-serif; font-size: 11px; margin: 20px; }
-        h2 { margin-bottom: 8px; font-size: 14px; }
-        p.meta { color: #666; font-size: 10px; margin-bottom: 12px; }
-        table { width: 100%; border-collapse: collapse; }
-        th { background: #f0f0f0; font-weight: 600; text-align: left; padding: 6px 8px; border: 1px solid #ccc; }
-        td { padding: 5px 8px; border: 1px solid #ddd; }
-        tr:nth-child(even) td { background: #fafafa; }
-      </style>
-    </head>
-    <body>
-      <h2>${title}</h2>
-      <p class="meta">Exportado el ${new Date().toLocaleDateString("es-ES")} — ${data.length} registros</p>
-      <table>
-        <thead><tr>${columns.map(c => `<th>${c.header}</th>`).join("")}</tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </body>
-    </html>
-  `
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" })
 
-  const iframe = document.createElement("iframe")
-  iframe.style.display = "none"
-  document.body.appendChild(iframe)
-  iframe.contentDocument!.open()
-  iframe.contentDocument!.write(html)
-  iframe.contentDocument!.close()
-  setTimeout(() => {
-    iframe.contentWindow!.focus()
-    iframe.contentWindow!.print()
-    setTimeout(() => document.body.removeChild(iframe), 1000)
-  }, 300)
+  const pageW = doc.internal.pageSize.getWidth()
+  const now   = new Date().toLocaleDateString("es-ES", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+  })
+
+  // ── Encabezado ────────────────────────────────────────────────────────────
+  if (options.clinicName) {
+    doc.setFontSize(9)
+    doc.setTextColor(120, 120, 120)
+    doc.text(options.clinicName, 14, 12)
+  }
+
+  doc.setFontSize(14)
+  doc.setTextColor(30, 30, 30)
+  doc.text(title, 14, options.clinicName ? 20 : 14)
+
+  doc.setFontSize(8)
+  doc.setTextColor(150, 150, 150)
+  doc.text(`Exportado el ${now} — ${data.length} registros`, 14, options.clinicName ? 26 : 20)
+
+  // Línea separadora
+  const headerEndY = options.clinicName ? 29 : 23
+  doc.setDrawColor(200, 200, 200)
+  doc.line(14, headerEndY, pageW - 14, headerEndY)
+
+  // ── Tabla ─────────────────────────────────────────────────────────────────
+  autoTable(doc, {
+    startY: headerEndY + 3,
+    head: [columns.map(c => c.header)],
+    body: data.map(row => columns.map(c => row[c.key] ?? "")),
+    headStyles: {
+      fillColor: [30, 30, 30],
+      textColor: 255,
+      fontSize: 8,
+      fontStyle: "bold",
+      cellPadding: { top: 3, bottom: 3, left: 4, right: 4 },
+    },
+    bodyStyles: {
+      fontSize: 8,
+      cellPadding: { top: 2.5, bottom: 2.5, left: 4, right: 4 },
+    },
+    alternateRowStyles: { fillColor: [248, 248, 248] },
+    margin: { left: 14, right: 14 },
+    didDrawPage: (hookData) => {
+      // Número de página al pie
+      const pageCount = (doc as any).internal.getNumberOfPages()
+      doc.setFontSize(7)
+      doc.setTextColor(180, 180, 180)
+      doc.text(
+        `Página ${hookData.pageNumber} de ${pageCount}`,
+        pageW - 14,
+        doc.internal.pageSize.getHeight() - 6,
+        { align: "right" }
+      )
+    },
+  })
+
+  // ── Totales ───────────────────────────────────────────────────────────────
+  if (options.totals && options.totals.length > 0) {
+    const finalY = (doc as any).lastAutoTable.finalY + 5
+    doc.setFontSize(8)
+    doc.setTextColor(30, 30, 30)
+    options.totals.forEach((row, i) => {
+      doc.text(`${row.label}:`, pageW - 14 - 60, finalY + i * 6, { align: "left" })
+      doc.setFont("helvetica", "bold")
+      doc.text(row.value, pageW - 14, finalY + i * 6, { align: "right" })
+      doc.setFont("helvetica", "normal")
+    })
+  }
+
+  // ── Descarga ──────────────────────────────────────────────────────────────
+  const safeTitle = title.replace(/[^a-zA-Z0-9_\-]/g, "_").replace(/_+/g, "_")
+  doc.save(`${safeTitle}.pdf`)
 }

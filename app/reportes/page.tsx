@@ -13,6 +13,7 @@ import { purchaseService } from "@/services/purchases"
 import { expenseService, CATEGORY_LABELS, PAYMENT_METHOD_LABELS } from "@/services/expenses"
 import { inventoryService } from "@/services/inventory"
 import { exportToExcel, exportToPDF } from "@/lib/export"
+import { useClinic } from "@/context/clinic-context"
 
 const MONTH_NAMES = [
   "Enero","Febrero","Marzo","Abril","Mayo","Junio",
@@ -49,6 +50,7 @@ function ExportButtons({ onExcel, onPDF }: { onExcel: () => void; onPDF: () => v
 
 export default function ReportesPage() {
   const { toast } = useToast()
+  const { clinic } = useClinic()
   const now = new Date()
   const [year, setYear]   = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -116,7 +118,7 @@ export default function ReportesPage() {
 
   // ── Export helpers ──────────────────────────────────────────────────────────
 
-  const exportPacientes = (type: "excel"|"pdf") => {
+  const exportPacientes = async (type: "excel"|"pdf") => {
     const cols = [
       { header: "Apellido",   key: "last_name" },
       { header: "Nombre",     key: "first_name" },
@@ -132,10 +134,10 @@ export default function ReportesPage() {
       _created: fmtDate(p.created_at?.split("T")[0] ?? ""),
     }))
     if (type === "excel") exportToExcel(data, cols, `Pacientes_${now.toISOString().split("T")[0]}`)
-    else exportToPDF(data, cols, `Pacientes — ${patients.length} registros`)
+    else await exportToPDF(data, cols, `Pacientes — ${patients.length} registros`, { clinicName: clinic?.name })
   }
 
-  const exportCitas = (type: "excel"|"pdf") => {
+  const exportCitas = async (type: "excel"|"pdf") => {
     const cols = [
       { header: "Fecha",      key: "_date" },
       { header: "Hora",       key: "time" },
@@ -153,10 +155,10 @@ export default function ReportesPage() {
       _treatment: a.treatments?.name ?? "—",
     }))
     if (type === "excel") exportToExcel(data, cols, `Citas_${monthLabel.replace(" ","_")}`)
-    else exportToPDF(data, cols, `Citas — ${monthLabel}`)
+    else await exportToPDF(data, cols, `Citas — ${monthLabel}`, { clinicName: clinic?.name })
   }
 
-  const exportCompras = (type: "excel"|"pdf") => {
+  const exportCompras = async (type: "excel"|"pdf") => {
     const cols = [
       { header: "Fecha",     key: "_date" },
       { header: "Proveedor", key: "_supplier" },
@@ -172,10 +174,13 @@ export default function ReportesPage() {
       _total:    fmt(Number(p.total)),
     }))
     if (type === "excel") exportToExcel(data, cols, `Compras_${monthLabel.replace(" ","_")}`)
-    else exportToPDF(data, cols, `Compras — ${monthLabel}`)
+    else await exportToPDF(data, cols, `Compras — ${monthLabel}`, {
+      clinicName: clinic?.name,
+      totals: [{ label: "Total compras", value: fmt(totalCompras) }],
+    })
   }
 
-  const exportGastos = (type: "excel"|"pdf") => {
+  const exportGastos = async (type: "excel"|"pdf") => {
     const cols = [
       { header: "Fecha",      key: "_date" },
       { header: "Categoría",  key: "_category" },
@@ -192,10 +197,13 @@ export default function ReportesPage() {
       _amount:   fmt(Number(e.amount)),
     }))
     if (type === "excel") exportToExcel(data, cols, `Gastos_${monthLabel.replace(" ","_")}`)
-    else exportToPDF(data, cols, `Gastos — ${monthLabel}`)
+    else await exportToPDF(data, cols, `Gastos — ${monthLabel}`, {
+      clinicName: clinic?.name,
+      totals: [{ label: "Total gastos", value: fmt(totalGastos) }],
+    })
   }
 
-  const exportMateriales = (type: "excel"|"pdf") => {
+  const exportMateriales = async (type: "excel"|"pdf") => {
     const cols = [
       { header: "Nombre",        key: "name" },
       { header: "Unidad",        key: "unit" },
@@ -210,7 +218,7 @@ export default function ReportesPage() {
       _sale: m.sale_price  != null ? fmt(m.sale_price) : "—",
     }))
     if (type === "excel") exportToExcel(data, cols, `Materiales_${now.toISOString().split("T")[0]}`)
-    else exportToPDF(data, cols, "Inventario de Materiales")
+    else await exportToPDF(data, cols, "Inventario de Materiales", { clinicName: clinic?.name })
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────

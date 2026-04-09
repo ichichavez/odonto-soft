@@ -3,9 +3,9 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Baby, Calendar, Camera, ClipboardList, Download, FileText, Grid3X3, Pencil, Pill, Stethoscope, User } from "lucide-react"
+import { ArrowLeft, Baby, Calendar, Camera, ClipboardList, Download, FileText, Grid3X3, Pencil, Pill, Plus, Stethoscope, Trash2, User, Wallet } from "lucide-react"
 import Link from "next/link"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import Image from "next/image"
 import { patientService } from "@/services/patients"
 import { dentalRecordService } from "@/services/dental-records"
@@ -18,12 +18,19 @@ import { PatientGallery } from "@/components/patient-gallery"
 import { useRouter, useParams } from "next/navigation"
 import { isValidUUID } from "@/lib/utils"
 import { useClinic } from "@/context/clinic-context"
+import { useAuth } from "@/context/auth-context"
+import { patientPaymentService, PAYMENT_METHODS, type PatientPayment } from "@/services/patient-payments"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
 
 export default function PacienteDetallePage() {
   const params = useParams() as { id: string }
   const { toast } = useToast()
   const router = useRouter()
   const { clinic } = useClinic()
+  const { user } = useAuth()
   const [patient, setPatient] = useState<any>(null)
   const [appointments, setAppointments] = useState<any[]>([])
   const [budgets, setBudgets] = useState<any[]>([])
@@ -34,6 +41,17 @@ export default function PacienteDetallePage() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
   const [dentalRecord, setDentalRecord] = useState<any>(null)
+  // Payments
+  const [payments, setPayments] = useState<PatientPayment[]>([])
+  const [paymentsLoading, setPaymentsLoading] = useState(true)
+  const [showPayForm, setShowPayForm] = useState(false)
+  const [savingPay, setSavingPay] = useState(false)
+  const [payForm, setPayForm] = useState({
+    date: new Date().toISOString().split("T")[0],
+    amount: "",
+    method: "efectivo",
+    concept: "",
+  })
 
   useEffect(() => {
     // Verificar si el ID es válido antes de hacer la consulta
@@ -71,6 +89,25 @@ export default function PacienteDetallePage() {
     if (!patient || !isValidUUID(params.id)) return
     dentalRecordService.getByPatient(params.id).then(setDentalRecord).catch(() => null)
   }, [patient, params.id])
+
+  // Cargar historial de pagos
+  const loadPayments = useCallback(async () => {
+    if (!isValidUUID(params.id)) return
+    setPaymentsLoading(true)
+    try {
+      const data = await patientPaymentService.getByPatient(params.id)
+      setPayments(data)
+    } catch {
+      // silencioso — tabla puede no existir todavía
+    } finally {
+      setPaymentsLoading(false)
+    }
+  }, [params.id])
+
+  useEffect(() => {
+    if (!patient) return
+    loadPayments()
+  }, [patient, loadPayments])
 
   // Cargar citas del paciente
   useEffect(() => {
@@ -151,6 +188,42 @@ export default function PacienteDetallePage() {
     } finally {
       setUploadingPhoto(false)
       if (photoInputRef.current) photoInputRef.current.value = ""
+    }
+  }
+
+  const handleSavePayment = async () => {
+    if (!payForm.amount || Number(payForm.amount) <= 0) {
+      toast({ title: "Ingresa un monto válido", variant: "destructive" }); return
+    }
+    setSavingPay(true)
+    try {
+      await patientPaymentService.create({
+        patient_id: params.id,
+        clinic_id: clinic?.id ?? null,
+        date: payForm.date,
+        amount: Number(payForm.amount),
+        method: payForm.method,
+        concept: payForm.concept || null,
+        created_by: user?.id ?? null,
+      })
+      toast({ title: "Pago registrado" })
+      setPayForm({ date: new Date().toISOString().split("T")[0], amount: "", method: "efectivo", concept: "" })
+      setShowPayForm(false)
+      loadPayments()
+    } catch {
+      toast({ title: "Error al registrar pago", variant: "destructive" })
+    } finally {
+      setSavingPay(false)
+    }
+  }
+
+  const handleDeletePayment = async (id: string) => {
+    try {
+      await patientPaymentService.delete(id)
+      setPayments(prev => prev.filter(p => p.id !== id))
+      toast({ title: "Pago eliminado" })
+    } catch {
+      toast({ title: "Error al eliminar pago", variant: "destructive" })
     }
   }
 
@@ -329,10 +402,13 @@ export default function PacienteDetallePage() {
       </div>
 
       <Tabs defaultValue="informacion">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="informacion">Información Personal</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="informacion">Información</TabsTrigger>
           <TabsTrigger value="historial">Historial Médico</TabsTrigger>
-          <TabsTrigger value="citas">Citas y Presupuestos</TabsTrigger>
+          <TabsTrigger value="citas">Citas</TabsTrigger>
+          <TabsTrigger value="pagos" className="flex items-center gap-1.5">
+            <Wallet className="h-3.5 w-3.5" />Pagos
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="informacion" className="mt-6">
@@ -558,6 +634,162 @@ export default function PacienteDetallePage() {
                       <Link href={`/presupuestos?paciente=${params.id}`}>Ver todos los presupuestos</Link>
                     </Button>
                   </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Tab Pagos ── */}
+        <TabsContent value="pagos" className="mt-6 space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Wallet className="h-5 w-5 text-primary" />
+                  Historial de Pagos
+                </CardTitle>
+                <CardDescription>
+                  {payments.length > 0
+                    ? `Total cobrado: ${formatCurrency(payments.reduce((s, p) => s + Number(p.amount), 0))}`
+                    : "Sin pagos registrados"}
+                </CardDescription>
+              </div>
+              <Button
+                size="sm"
+                onClick={() => setShowPayForm(v => !v)}
+                className="gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Registrar pago
+              </Button>
+            </CardHeader>
+
+            {/* Formulario inline */}
+            {showPayForm && (
+              <div className="px-6 pb-5">
+                <div className="rounded-lg border bg-muted/40 p-4 space-y-3">
+                  <p className="text-sm font-semibold">Nuevo pago</p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="pay-date" className="text-xs">Fecha</Label>
+                      <Input
+                        id="pay-date"
+                        type="date"
+                        value={payForm.date}
+                        onChange={e => setPayForm(p => ({ ...p, date: e.target.value }))}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="pay-amount" className="text-xs">Monto</Label>
+                      <Input
+                        id="pay-amount"
+                        type="number"
+                        min="0"
+                        step="1000"
+                        placeholder="0"
+                        value={payForm.amount}
+                        onChange={e => setPayForm(p => ({ ...p, amount: e.target.value }))}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Método</Label>
+                      <Select
+                        value={payForm.method}
+                        onValueChange={v => setPayForm(p => ({ ...p, method: v }))}
+                      >
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(PAYMENT_METHODS).map(([k, v]) => (
+                            <SelectItem key={k} value={k}>{v}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="pay-concept" className="text-xs">Concepto</Label>
+                      <Input
+                        id="pay-concept"
+                        placeholder="Ej: Consulta, cuota 1..."
+                        value={payForm.concept}
+                        onChange={e => setPayForm(p => ({ ...p, concept: e.target.value }))}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <Button size="sm" onClick={handleSavePayment} disabled={savingPay}>
+                      {savingPay ? "Guardando..." : "Guardar"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => setShowPayForm(false)}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <CardContent className="pt-0">
+              {paymentsLoading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+                </div>
+              ) : payments.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No hay pagos registrados. Usa "Registrar pago" para agregar el primero.
+                </div>
+              ) : (
+                <div className="space-y-0">
+                  {/* Header */}
+                  <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b">
+                    <span>Concepto</span>
+                    <span className="text-right w-24">Fecha</span>
+                    <span className="text-right w-24">Método</span>
+                    <span className="text-right w-28">Monto</span>
+                    <span className="w-8" />
+                  </div>
+                  {payments.map(pay => (
+                    <div
+                      key={pay.id}
+                      className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 items-center px-2 py-2.5 border-b last:border-0 hover:bg-muted/30 text-sm"
+                    >
+                      <span className="truncate">{pay.concept || "—"}</span>
+                      <span className="text-right w-24 text-muted-foreground tabular-nums">
+                        {new Date(pay.date + "T00:00:00").toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" })}
+                      </span>
+                      <span className="text-right w-24 text-muted-foreground">
+                        {PAYMENT_METHODS[pay.method] ?? pay.method}
+                      </span>
+                      <span className="text-right w-28 font-semibold tabular-nums">
+                        {formatCurrency(Number(pay.amount))}
+                      </span>
+                      <button
+                        onClick={() => handleDeletePayment(pay.id)}
+                        className="w-8 flex justify-center text-muted-foreground hover:text-destructive transition-colors"
+                        title="Eliminar pago"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Total */}
+                  {payments.length > 0 && (
+                    <>
+                      <Separator className="my-2" />
+                      <div className="flex justify-end gap-4 px-2 py-1.5 font-semibold text-sm">
+                        <span className="text-muted-foreground">Total pagado</span>
+                        <span className="w-28 text-right tabular-nums">
+                          {formatCurrency(payments.reduce((s, p) => s + Number(p.amount), 0))}
+                        </span>
+                        <span className="w-8" />
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </CardContent>
