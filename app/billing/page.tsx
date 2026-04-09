@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CreditCard, CheckCircle2, AlertTriangle, Clock, XCircle, ExternalLink } from "lucide-react"
+import { CreditCard, CheckCircle2, AlertTriangle, Clock, XCircle, ExternalLink, Users, UserRound, Building2 } from "lucide-react"
+import { Progress } from "@/components/ui/progress"
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,13 @@ type Subscription = {
   cancel_at_period_end: boolean
   stripe_customer_id: string | null
   stripe_subscription_id: string | null
+}
+
+type PlanUsage = {
+  plan: string
+  status: string
+  limits: { patients: number | null; users: number | null; branches: number | null }
+  usage: { patients: number; users: number; branches: number }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -63,6 +71,7 @@ export default function BillingPage() {
   const { user, session } = useAuth()
   const router = useRouter()
   const [subscription, setSubscription] = useState<Subscription | null>(null)
+  const [planUsage, setPlanUsage] = useState<PlanUsage | null>(null)
   const [loading, setLoading] = useState(true)
   const [portalLoading, setPortalLoading] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
@@ -72,13 +81,23 @@ export default function BillingPage() {
 
     const load = async () => {
       const supabase = createBrowserClient()
-      const { data } = await (supabase as any)
-        .from("subscriptions")
-        .select("plan, status, current_period_end, cancel_at_period_end, stripe_customer_id, stripe_subscription_id")
-        .eq("clinic_id", user.clinic_id)
-        .single()
+      const [{ data: subData }, sessionData] = await Promise.all([
+        (supabase as any)
+          .from("subscriptions")
+          .select("plan, status, current_period_end, cancel_at_period_end, stripe_customer_id, stripe_subscription_id")
+          .eq("clinic_id", user.clinic_id)
+          .single(),
+        supabase.auth.getSession(),
+      ])
+      setSubscription(subData ?? null)
 
-      setSubscription(data ?? null)
+      const token = sessionData.data.session?.access_token
+      if (token) {
+        try {
+          const res = await fetch("/api/plan/usage", { headers: { Authorization: `Bearer ${token}` } })
+          if (res.ok) setPlanUsage(await res.json())
+        } catch {}
+      }
       setLoading(false)
     }
     load()
@@ -221,6 +240,54 @@ export default function BillingPage() {
               <p className="text-muted-foreground mb-4">No tenés una suscripción activa.</p>
               <Button onClick={() => router.push("/precios")}>Ver planes</Button>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Usage card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Uso actual</CardTitle>
+          <CardDescription>Recursos utilizados en tu plan</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {loading ? (
+            <div className="space-y-4">
+              {[0,1,2].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+            </div>
+          ) : planUsage ? (
+            <div className="space-y-4">
+              {(
+                [
+                  { key: "patients" as const, label: "Pacientes",   Icon: UserRound  },
+                  { key: "users"    as const, label: "Usuarios",    Icon: Users      },
+                  { key: "branches" as const, label: "Sucursales",  Icon: Building2  },
+                ] as const
+              ).map(({ key, label, Icon }) => {
+                const current = planUsage.usage[key]
+                const limit   = planUsage.limits[key]
+                const pct     = limit ? Math.min((current / limit) * 100, 100) : 0
+                const near    = limit !== null && pct >= 80
+                return (
+                  <div key={key} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-1.5 font-medium">
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                        {label}
+                      </span>
+                      <span className={near ? "text-orange-600 font-medium" : "text-muted-foreground"}>
+                        {current}{limit !== null ? ` / ${limit}` : " / Ilimitado"}
+                      </span>
+                    </div>
+                    {limit !== null && (
+                      <Progress value={pct} className={`h-2 ${near ? "[&>div]:bg-orange-500" : ""}`} />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No se pudo cargar el uso.</p>
           )}
         </CardContent>
       </Card>

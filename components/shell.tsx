@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation"
 import { AppSidebar } from "@/components/app-sidebar"
 import { AppointmentReminders } from "@/components/appointment-reminders"
 
-const NO_SIDEBAR_ROUTES = ["/login", "/registro", "/precios", "/billing/success"]
+const NO_SIDEBAR_ROUTES = ["/login", "/registro", "/precios", "/billing/success", "/recuperar-contrasena", "/nueva-contrasena"]
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()

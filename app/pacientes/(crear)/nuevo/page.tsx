@@ -86,6 +86,28 @@ export default function NuevoPacientePage() {
       return
     }
     setIsSubmitting(true)
+
+    // Pre-check plan limit for patients
+    try {
+      const token = (await import("@/lib/supabase").then(m => m.createBrowserClient()).then(sb => sb.auth.getSession())).data.session?.access_token
+      if (token) {
+        const usageRes = await fetch("/api/plan/usage", { headers: { Authorization: `Bearer ${token}` } })
+        if (usageRes.ok) {
+          const { usage, limits } = await usageRes.json()
+          if (limits.patients !== null && usage.patients >= limits.patients) {
+            toast({
+              title: "Límite alcanzado",
+              description: `Tu plan permite hasta ${limits.patients} pacientes. Actualiza tu plan para continuar.`,
+              variant: "destructive",
+            })
+            setIsSubmitting(false)
+            return
+          }
+        }
+      }
+    } catch {
+      // Non-blocking: proceed if check fails
+    }
     try {
       // Convertir strings vacíos a null (evita errores de tipo date, unique constraint, etc.)
       const sanitized = Object.fromEntries(

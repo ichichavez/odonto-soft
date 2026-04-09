@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/api-auth"
 import { createServerClient } from "@/lib/supabase"
+import { checkPlanLimit } from "@/lib/plan-limits"
 
 // GET — Lista todos los usuarios de la clínica del admin autenticado
 export async function GET(request: Request) {
@@ -52,6 +53,15 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServerClient()
+
+  // Check plan limit for users
+  const limitCheck = await checkPlanLimit(supabase, profile.clinic_id, "users")
+  if (!limitCheck.allowed) {
+    return NextResponse.json(
+      { error: `Límite de usuarios alcanzado (${limitCheck.current}/${limitCheck.limit}) para tu plan` },
+      { status: 403 }
+    )
+  }
 
   // 1. Crear el usuario en Supabase Auth (usando service role)
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({

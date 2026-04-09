@@ -163,7 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Redirigir a login si no está autenticado (excluir rutas públicas)
-  const PUBLIC_ROUTES = ["/login", "/precios", "/registro"]
+  const PUBLIC_ROUTES = ["/login", "/precios", "/registro", "/recuperar-contrasena", "/nueva-contrasena"]
   useEffect(() => {
     if (!loading && !user && !PUBLIC_ROUTES.includes(pathname ?? "")) {
       router.push("/login")

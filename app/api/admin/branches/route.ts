@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { requireAdmin } from "@/lib/api-auth"
 import { createServerClient } from "@/lib/supabase"
+import { checkPlanLimit } from "@/lib/plan-limits"
 
 // GET — lista sucursales de la clínica del admin autenticado
 export async function GET(request: Request) {
@@ -47,6 +48,16 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServerClient()
+
+  // Check plan limit for branches
+  const limitCheck = await checkPlanLimit(supabase, profile.clinic_id, "branches")
+  if (!limitCheck.allowed) {
+    return NextResponse.json(
+      { error: `Límite de sucursales alcanzado (${limitCheck.current}/${limitCheck.limit}) para tu plan` },
+      { status: 403 }
+    )
+  }
+
   const { data, error } = await supabase
     .from("branches")
     .insert([{ clinic_id: profile.clinic_id, name, address: address ?? null, phone: phone ?? null }])
