@@ -12,6 +12,7 @@ import { appointmentService } from "@/services/appointments"
 import { purchaseService } from "@/services/purchases"
 import { expenseService, CATEGORY_LABELS, PAYMENT_METHOD_LABELS } from "@/services/expenses"
 import { inventoryService } from "@/services/inventory"
+import { treatmentPlanService } from "@/services/treatment-plan"
 import { exportToExcel, exportToPDF } from "@/lib/export"
 import { useClinic } from "@/context/clinic-context"
 
@@ -60,12 +61,14 @@ export default function ReportesPage() {
   const [purchases,    setPurchases]    = useState<any[]>([])
   const [expenses,     setExpenses]     = useState<any[]>([])
   const [materials,    setMaterials]    = useState<any[]>([])
+  const [planItems,    setPlanItems]    = useState<any[]>([])
 
   const [loadingPatients,     setLoadingPatients]     = useState(true)
   const [loadingAppointments, setLoadingAppointments] = useState(true)
   const [loadingPurchases,    setLoadingPurchases]    = useState(true)
   const [loadingExpenses,     setLoadingExpenses]     = useState(true)
   const [loadingMaterials,    setLoadingMaterials]    = useState(true)
+  const [loadingPlan,         setLoadingPlan]         = useState(true)
 
   // Load static data once
   useEffect(() => {
@@ -78,6 +81,11 @@ export default function ReportesPage() {
       .then(setMaterials)
       .catch(() => {})
       .finally(() => setLoadingMaterials(false))
+
+    treatmentPlanService.getAllWithPatients()
+      .then(setPlanItems)
+      .catch(() => {})
+      .finally(() => setLoadingPlan(false))
   }, [])
 
   // Load month-dependent data
@@ -115,6 +123,36 @@ export default function ReportesPage() {
   const totalCompras  = useMemo(() => purchases.reduce((s,p) => s + Number(p.total), 0), [purchases])
   const totalGastos   = useMemo(() => expenses.reduce((s,e) => s + Number(e.amount), 0), [expenses])
   const stockBajo     = useMemo(() => materials.filter(m => m.stock_quantity <= m.min_stock).length, [materials])
+
+  // Saldos por paciente (agrupado desde treatment_plan_items)
+  const saldosPorPaciente = useMemo(() => {
+    const map = new Map<string, {
+      patient: any
+      totalCost: number
+      totalPayment: number
+      lastPaymentDate: string | null
+    }>()
+    planItems.forEach((item: any) => {
+      const pid = item.patient_id
+      if (!map.has(pid)) {
+        map.set(pid, { patient: item.patients, totalCost: 0, totalPayment: 0, lastPaymentDate: null })
+      }
+      const e = map.get(pid)!
+      e.totalCost    += Number(item.cost)    || 0
+      e.totalPayment += Number(item.payment) || 0
+      if (Number(item.payment) > 0) {
+        if (!e.lastPaymentDate || item.date > e.lastPaymentDate) e.lastPaymentDate = item.date
+      }
+    })
+    return Array.from(map.values())
+      .filter(e => e.totalCost - e.totalPayment > 0.01) // solo con saldo pendiente
+      .sort((a, b) => (b.totalCost - b.totalPayment) - (a.totalCost - a.totalPayment))
+  }, [planItems])
+
+  const totalSaldoPendiente = useMemo(
+    () => saldosPorPaciente.reduce((s, e) => s + (e.totalCost - e.totalPayment), 0),
+    [saldosPorPaciente]
+  )
 
   // ── Export helpers ──────────────────────────────────────────────────────────
 
@@ -203,6 +241,34 @@ export default function ReportesPage() {
     })
   }
 
+  const exportSaldos = async (type: "excel"|"pdf") => {
+    const cols = [
+      { header: "Apellido",        key: "_last"    },
+      { header: "Nombre",          key: "_first"   },
+      { header: "CI / Documento",  key: "_ci"      },
+      { header: "Teléfono",        key: "_phone"   },
+      { header: "Total tratam.",   key: "_cost"    },
+      { header: "Total entregado", key: "_payment" },
+      { header: "Saldo pendiente", key: "_balance" },
+      { header: "Última entrega",  key: "_lastDate"},
+    ]
+    const data = saldosPorPaciente.map(e => ({
+      _last:    e.patient?.last_name  ?? "—",
+      _first:   e.patient?.first_name ?? "—",
+      _ci:      e.patient?.ci         ?? "—",
+      _phone:   e.patient?.phone      ?? "—",
+      _cost:    fmt(e.totalCost),
+      _payment: fmt(e.totalPayment),
+      _balance: fmt(e.totalCost - e.totalPayment),
+      _lastDate: e.lastPaymentDate ? fmtDate(e.lastPaymentDate) : "Sin entregas",
+    }))
+    if (type === "excel") exportToExcel(data, cols, `Saldos_${now.toISOString().split("T")[0]}`)
+    else await exportToPDF(data, cols, "Saldos Pendientes", {
+      clinicName: clinic?.name,
+      totals: [{ label: "Total saldo pendiente", value: fmt(totalSaldoPendiente) }],
+    })
+  }
+
   const exportMateriales = async (type: "excel"|"pdf") => {
     const cols = [
       { header: "Nombre",        key: "name" },
@@ -265,6 +331,14 @@ export default function ReportesPage() {
           <TabsTrigger value="compras">Compras</TabsTrigger>
           <TabsTrigger value="gastos">Gastos</TabsTrigger>
           <TabsTrigger value="materiales">Materiales</TabsTrigger>
+          <TabsTrigger value="saldos" className="relative">
+            Saldos
+            {saldosPorPaciente.length > 0 && (
+              <span className="ml-1.5 rounded-full bg-destructive text-destructive-foreground text-[10px] px-1.5 py-0.5 font-bold">
+                {saldosPorPaciente.length}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         {/* ── PACIENTES ── */}
@@ -497,6 +571,89 @@ export default function ReportesPage() {
                         </tr>
                       ))}
                     </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        {/* ── SALDOS ── */}
+        <TabsContent value="saldos">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between flex-wrap gap-2">
+              <div>
+                <CardTitle>Saldos Pendientes ({saldosPorPaciente.length} pacientes)</CardTitle>
+                {saldosPorPaciente.length > 0 && (
+                  <p className="text-sm text-destructive font-medium mt-0.5">
+                    Total pendiente: {fmt(totalSaldoPendiente)}
+                  </p>
+                )}
+              </div>
+              <ExportButtons onExcel={() => exportSaldos("excel")} onPDF={() => exportSaldos("pdf")} />
+            </CardHeader>
+            <CardContent>
+              {loadingPlan ? (
+                <div className="space-y-2">{[1,2,3].map(i=><Skeleton key={i} className="h-10 w-full"/>)}</div>
+              ) : saldosPorPaciente.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p className="text-lg font-medium">Sin saldos pendientes</p>
+                  <p className="text-sm mt-1">Todos los tratamientos están saldados.</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b text-muted-foreground text-xs uppercase">
+                        <th className="text-left py-2 px-2">Paciente</th>
+                        <th className="text-left py-2 px-2">CI / Doc.</th>
+                        <th className="text-left py-2 px-2">Teléfono</th>
+                        <th className="text-right py-2 px-2">Total tratam.</th>
+                        <th className="text-right py-2 px-2">Entregado</th>
+                        <th className="text-right py-2 px-2">Saldo</th>
+                        <th className="text-right py-2 px-2">Última entrega</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {saldosPorPaciente.map((e, i) => {
+                        const balance = e.totalCost - e.totalPayment
+                        const waPhone = e.patient?.phone?.replace(/\D/g, "")
+                        return (
+                          <tr key={i} className="border-b hover:bg-muted/30">
+                            <td className="py-2 px-2 font-medium">
+                              {e.patient ? `${e.patient.last_name}, ${e.patient.first_name}` : "—"}
+                            </td>
+                            <td className="py-2 px-2 text-muted-foreground">{e.patient?.ci || "—"}</td>
+                            <td className="py-2 px-2">
+                              {waPhone ? (
+                                <a
+                                  href={`https://wa.me/${waPhone}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-green-600 hover:underline flex items-center gap-1"
+                                >
+                                  {e.patient.phone}
+                                </a>
+                              ) : (
+                                <span className="text-muted-foreground">—</span>
+                              )}
+                            </td>
+                            <td className="py-2 px-2 text-right">{fmt(e.totalCost)}</td>
+                            <td className="py-2 px-2 text-right text-green-600">{fmt(e.totalPayment)}</td>
+                            <td className="py-2 px-2 text-right font-semibold text-destructive">{fmt(balance)}</td>
+                            <td className="py-2 px-2 text-right text-muted-foreground text-xs">
+                              {e.lastPaymentDate ? fmtDate(e.lastPaymentDate) : "Sin entregas"}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t font-semibold bg-muted/40">
+                        <td colSpan={5} className="py-2 px-2 text-right text-sm">Total pendiente</td>
+                        <td className="py-2 px-2 text-right text-destructive">{fmt(totalSaldoPendiente)}</td>
+                        <td />
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
               )}

@@ -27,6 +27,17 @@ export const treatmentPlanService = {
     return data ?? []
   },
 
+  // Trae todos los ítems con datos del paciente (para reporte de saldos)
+  async getAllWithPatients(): Promise<any[]> {
+    const supabase = createBrowserClient()
+    const { data, error } = await (supabase as any)
+      .from("treatment_plan_items")
+      .select("patient_id, date, cost, payment, patients(id, first_name, last_name, ci, phone)")
+      .order("date", { ascending: false })
+    if (error) throw error
+    return data ?? []
+  },
+
   // Reemplaza todos los ítems del paciente con los nuevos (delete + insert)
   async upsertItems(patientId: string, items: Omit<TreatmentPlanItem, "id" | "created_at">[]): Promise<void> {
     const supabase = createBrowserClient()
