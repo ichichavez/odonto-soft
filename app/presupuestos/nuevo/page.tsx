@@ -18,6 +18,7 @@ import { patientService } from "@/services/patients"
 import { useAuth } from "@/context/auth-context"
 import { useClinic } from "@/context/clinic-context"
 import { RoleGuard } from "@/components/role-guard"
+import { useBranch } from "@/context/branch-context"
 
 interface Item {
   treatment_id: string
@@ -48,6 +49,7 @@ export default function NuevoPresupuestoPage() {
   const router = useRouter()
   const { user } = useAuth()
   const { clinic } = useClinic()
+  const { activeBranch } = useBranch()
   const [saving, setSaving] = useState(false)
   const [patients, setPatients] = useState<any[]>([])
   const [treatments, setTreatments] = useState<any[]>([])
@@ -117,7 +119,8 @@ export default function NuevoPresupuestoPage() {
           quantity: i.quantity,
           price: i.price,
           total: i.total,
-        }))
+        })),
+        activeBranch?.id
       )
       toast({ title: "Presupuesto creado", description: `Presupuesto ${number} creado exitosamente.` })
       router.push(`/presupuestos/${budget.id}`)

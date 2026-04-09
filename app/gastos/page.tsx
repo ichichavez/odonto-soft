@@ -19,6 +19,7 @@ import {
   CATEGORY_LABELS,
   PAYMENT_METHOD_LABELS,
 } from "@/services/expenses"
+import { useBranch } from "@/context/branch-context"
 
 const CATEGORY_COLORS: Record<ExpenseCategory, string> = {
   material_dental: "bg-blue-100 text-blue-800",
@@ -49,6 +50,7 @@ const MONTH_NAMES = [
 
 export default function GastosPage() {
   const { toast } = useToast()
+  const { activeBranch } = useBranch()
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -61,7 +63,7 @@ export default function GastosPage() {
     setLoading(true)
     try {
       const { from, to } = getMonthRange(year, month)
-      const data = await expenseService.getByDateRange(from, to)
+      const data = await expenseService.getByDateRange(from, to, activeBranch?.id)
       setExpenses(data)
     } catch {
       toast({ title: "Error", description: "No se pudieron cargar los gastos", variant: "destructive" })
@@ -70,7 +72,7 @@ export default function GastosPage() {
     }
   }
 
-  useEffect(() => { load() }, [year, month]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load() }, [year, month, activeBranch?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDelete = async (id: string) => {
     if (!confirm("¿Eliminar este gasto?")) return

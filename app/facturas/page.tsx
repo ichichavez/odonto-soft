@@ -14,11 +14,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { invoiceService } from "@/services/invoices"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useBranch } from "@/context/branch-context"
 
 export default function FacturasPage() {
   const { hasPermission } = useAuth()
   const router = useRouter()
   const { toast } = useToast()
+  const { activeBranch } = useBranch()
   const [invoices, setInvoices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
@@ -36,7 +38,7 @@ export default function FacturasPage() {
     const fetchInvoices = async () => {
       try {
         setLoading(true)
-        const data = await invoiceService.getAll()
+        const data = await invoiceService.getAll(activeBranch?.id)
         setInvoices(data)
       } catch (error) {
         console.error("Error al cargar facturas:", error)
@@ -51,7 +53,7 @@ export default function FacturasPage() {
     }
 
     fetchInvoices()
-  }, [toast])
+  }, [toast, activeBranch?.id])
 
   const handleSearch = () => {
     // Implementar búsqueda

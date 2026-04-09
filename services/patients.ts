@@ -15,9 +15,11 @@ export type DentalRecordUpdate = Database["public"]["Tables"]["dental_records"][
 
 export const patientService = {
   // Obtener todos los pacientes
-  async getAll() {
+  async getAll(branchId?: string | null) {
     const supabase = createBrowserClient()
-    const { data, error } = await supabase.from("patients").select("*").order("last_name", { ascending: true })
+    let q = supabase.from("patients").select("*")
+    if (branchId) q = q.eq("branch_id", branchId)
+    const { data, error } = await q.order("last_name", { ascending: true })
 
     if (error) throw error
     return data
@@ -45,6 +47,7 @@ export const patientService = {
     patient: PatientInsert,
     medicalRecord: Omit<MedicalRecordInsert, "patient_id"> = {},
     dentalRecord: Omit<DentalRecordInsert, "patient_id"> = {},
+    branchId?: string | null,
   ) {
     const supabase = createBrowserClient()
 
@@ -52,7 +55,7 @@ export const patientService = {
       // Insertar paciente
       const { data: patientData, error: patientError } = await supabase
         .from("patients")
-        .insert([patient])
+        .insert([{ ...patient, branch_id: branchId ?? null }])
         .select()
         .single()
 
@@ -214,13 +217,14 @@ export const patientService = {
   },
 
   // Buscar pacientes
-  async search(query: string) {
+  async search(query: string, branchId?: string | null) {
     const supabase = createBrowserClient()
-    const { data, error } = await supabase
+    let q = supabase
       .from("patients")
       .select("*")
       .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%,phone.ilike.%${query}%`)
-      .order("last_name", { ascending: true })
+    if (branchId) q = q.eq("branch_id", branchId)
+    const { data, error } = await q.order("last_name", { ascending: true })
 
     if (error) throw error
     return data

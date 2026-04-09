@@ -15,6 +15,7 @@ export type PaymentMethod = "efectivo" | "transferencia" | "tarjeta" | "cheque"
 export type Expense = {
   id: string
   clinic_id: string | null
+  branch_id: string | null
   created_by: string | null
   date: string
   category: ExpenseCategory
@@ -44,34 +45,31 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
 }
 
 export const expenseService = {
-  async getAll(): Promise<Expense[]> {
+  async getAll(branchId?: string | null): Promise<Expense[]> {
     const supabase = createBrowserClient()
-    const { data, error } = await supabase
-      .from("expenses")
-      .select("*")
+    let q = supabase.from("expenses").select("*")
+    if (branchId) q = q.eq("branch_id", branchId)
+    const { data, error } = await q
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
     if (error) throw error
     return data as Expense[]
   },
 
-  async getByDateRange(from: string, to: string): Promise<Expense[]> {
+  async getByDateRange(from: string, to: string, branchId?: string | null): Promise<Expense[]> {
     const supabase = createBrowserClient()
-    const { data, error } = await supabase
-      .from("expenses")
-      .select("*")
-      .gte("date", from)
-      .lte("date", to)
-      .order("date", { ascending: false })
+    let q = supabase.from("expenses").select("*").gte("date", from).lte("date", to)
+    if (branchId) q = q.eq("branch_id", branchId)
+    const { data, error } = await q.order("date", { ascending: false })
     if (error) throw error
     return data as Expense[]
   },
 
-  async create(expense: Omit<Expense, "id" | "created_at">): Promise<Expense> {
+  async create(expense: Omit<Expense, "id" | "created_at">, branchId?: string | null): Promise<Expense> {
     const supabase = createBrowserClient()
     const { data, error } = await supabase
       .from("expenses")
-      .insert([expense])
+      .insert([{ ...expense, branch_id: branchId ?? null }])
       .select()
       .single()
     if (error) throw error

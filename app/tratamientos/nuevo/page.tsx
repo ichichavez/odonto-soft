@@ -14,10 +14,12 @@ import { useState } from "react"
 import { treatmentService } from "@/services/treatments"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
+import { useBranch } from "@/context/branch-context"
 
 export default function NuevoTratamientoPage() {
   const { toast } = useToast()
   const router = useRouter()
+  const { activeBranch } = useBranch()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
@@ -67,7 +69,7 @@ export default function NuevoTratamientoPage() {
         duration: Number.parseInt(formData.duration) || 30,
       }
 
-      const newTreatment = await treatmentService.create(treatmentData)
+      const newTreatment = await treatmentService.create(treatmentData, activeBranch?.id)
 
       toast({
         title: "Tratamiento creado",

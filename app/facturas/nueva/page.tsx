@@ -19,6 +19,7 @@ import { invoiceService } from "@/services/invoices"
 import { useAuth } from "@/context/auth-context"
 import { useClinic } from "@/context/clinic-context"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useBranch } from "@/context/branch-context"
 import { Badge } from "@/components/ui/badge"
 import { createBrowserClient } from "@/lib/supabase"
 
@@ -27,6 +28,7 @@ export default function NuevaFacturaPage() {
   const router = useRouter()
   const { user } = useAuth()
   const { clinic } = useClinic()
+  const { activeBranch } = useBranch()
 
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -287,7 +289,7 @@ export default function NuevaFacturaPage() {
       console.log("Datos de factura a enviar:", invoiceData)
 
       // Crear la factura
-      const invoice = await invoiceService.createDirectInvoice(invoiceData)
+      const invoice = await invoiceService.createDirectInvoice(invoiceData, activeBranch?.id)
 
       toast({
         title: "Factura creada",

@@ -66,15 +66,16 @@ export const inventoryService = {
 
   // Materiales
   materials: {
-    async getAll() {
+    async getAll(branchId?: string | null) {
       const supabase = createBrowserClient()
-      const { data, error } = await supabase
+      let q = supabase
         .from("materials")
         .select(`
           *,
           material_categories (id, name)
         `)
-        .order("name", { ascending: true })
+      if (branchId) q = q.eq("branch_id", branchId)
+      const { data, error } = await q.order("name", { ascending: true })
 
       if (error) throw error
       return data
@@ -117,7 +118,7 @@ export const inventoryService = {
       return lowStockMaterials
     },
 
-    async create(material: MaterialInsert) {
+    async create(material: MaterialInsert, branchId?: string | null) {
       const supabase = createBrowserClient()
 
       // Calcular el precio de venta basado en el costo y el porcentaje de ganancia
@@ -125,7 +126,11 @@ export const inventoryService = {
         material.price = material.cost_price * (1 + material.profit_percentage / 100)
       }
 
-      const { data, error } = await supabase.from("materials").insert([material]).select().single()
+      const { data, error } = await supabase
+        .from("materials")
+        .insert([{ ...material, branch_id: branchId ?? null }])
+        .select()
+        .single()
 
       if (error) throw error
       return data
@@ -156,16 +161,17 @@ export const inventoryService = {
 
   // Movimientos de inventario
   movements: {
-    async getAll() {
+    async getAll(branchId?: string | null) {
       const supabase = createBrowserClient()
-      const { data, error } = await supabase
+      let q = supabase
         .from("inventory_movements")
         .select(`
           *,
           materials (id, name, unit),
           users (id, name)
         `)
-        .order("created_at", { ascending: false })
+      if (branchId) q = q.eq("branch_id", branchId)
+      const { data, error } = await q.order("created_at", { ascending: false })
 
       if (error) throw error
       return data
@@ -187,7 +193,7 @@ export const inventoryService = {
       return data
     },
 
-    async create(movement: Omit<InventoryMovementInsert, "previous_stock" | "new_stock">) {
+    async create(movement: Omit<InventoryMovementInsert, "previous_stock" | "new_stock">, branchId?: string | null) {
       const supabase = createBrowserClient()
 
       // Obtener el stock actual del material
@@ -216,6 +222,7 @@ export const inventoryService = {
         ...movement,
         previous_stock: previousStock,
         new_stock: newStock,
+        branch_id: branchId ?? null,
       }
 
       const { data, error } = await supabase.from("inventory_movements").insert([completeMovement]).select().single()

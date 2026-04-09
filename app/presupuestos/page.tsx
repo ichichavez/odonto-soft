@@ -13,10 +13,12 @@ import { Badge } from "@/components/ui/badge"
 import { budgetService } from "@/services/budgets"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useBranch } from "@/context/branch-context"
 
 export default function PresupuestosPage() {
   const { hasPermission } = useAuth()
   const router = useRouter()
+  const { activeBranch } = useBranch()
   const [budgets, setBudgets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
@@ -33,7 +35,7 @@ export default function PresupuestosPage() {
     const fetchBudgets = async () => {
       try {
         setLoading(true)
-        const data = await budgetService.getAll()
+        const data = await budgetService.getAll(activeBranch?.id)
         setBudgets(data)
       } catch (error) {
         console.error("Error al cargar presupuestos:", error)
@@ -48,7 +50,7 @@ export default function PresupuestosPage() {
     }
 
     fetchBudgets()
-  }, [toast])
+  }, [toast, activeBranch?.id])
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {

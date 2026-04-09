@@ -8,6 +8,7 @@ import { NotificationProvider } from "@/context/notification-context"
 import { ThemeInjector } from "@/components/theme-injector"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { Shell } from "@/components/shell"
+import { BranchProvider } from "@/context/branch-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -27,11 +28,13 @@ export default function RootLayout({
         <ErrorBoundary>
           <AuthProvider>
             <ClinicProvider>
+              <BranchProvider>
               <NotificationProvider>
                 <ThemeInjector />
                 <Shell>{children}</Shell>
                 <Toaster />
               </NotificationProvider>
+              </BranchProvider>
             </ClinicProvider>
           </AuthProvider>
         </ErrorBoundary>

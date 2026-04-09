@@ -29,13 +29,13 @@ export const appointmentService = {
   },
 
   // Obtener todas las citas
-  async getAll() {
+  async getAll(branchId?: string | null) {
     try {
       console.log("📋 Obteniendo todas las citas")
       const supabase = createBrowserClient()
       const tableName = await this.getTableName()
 
-      const { data, error } = await supabase
+      let q = supabase
         .from(tableName as any)
         .select(`
           *,
@@ -43,7 +43,8 @@ export const appointmentService = {
           users (id, name),
           treatments (id, name, price)
         `)
-        .order("date", { ascending: true })
+      if (branchId) q = q.eq("branch_id", branchId)
+      const { data, error } = await q.order("date", { ascending: true })
 
       if (error) {
         console.error("Error fetching appointments:", error)
@@ -57,12 +58,12 @@ export const appointmentService = {
   },
 
   // Obtener citas en un rango de fechas
-  async getByDateRange(startDate: string, endDate: string) {
+  async getByDateRange(startDate: string, endDate: string, branchId?: string | null) {
     try {
       const supabase = createBrowserClient()
       const tableName = await this.getTableName()
 
-      const { data, error } = await supabase
+      let q = supabase
         .from(tableName as any)
         .select(`
           *,
@@ -72,6 +73,8 @@ export const appointmentService = {
         `)
         .gte("date", startDate)
         .lte("date", endDate)
+      if (branchId) q = q.eq("branch_id", branchId)
+      const { data, error } = await q
         .order("date", { ascending: true })
         .order("time", { ascending: true })
 
@@ -84,13 +87,13 @@ export const appointmentService = {
   },
 
   // Obtener citas por fecha
-  async getByDate(date: string) {
+  async getByDate(date: string, branchId?: string | null) {
     try {
       console.log(`📋 Obteniendo citas para fecha ${date}`)
       const supabase = createBrowserClient()
       const tableName = await this.getTableName()
 
-      const { data, error } = await supabase
+      let q = supabase
         .from(tableName as any)
         .select(`
           *,
@@ -99,7 +102,8 @@ export const appointmentService = {
           treatments (id, name, price)
         `)
         .eq("date", date)
-        .order("time", { ascending: true })
+      if (branchId) q = q.eq("branch_id", branchId)
+      const { data, error } = await q.order("time", { ascending: true })
 
       if (error) {
         console.error("Error fetching appointments by date:", error)
@@ -143,7 +147,7 @@ export const appointmentService = {
   },
 
   // Crear una nueva cita con múltiples estrategias y valores de status
-  async create(appointment: any) {
+  async create(appointment: any, branchId?: string | null) {
     try {
       console.log("🚀 CREANDO CITA (estrategia anti-constraint)")
       console.log("📋 Datos recibidos:", appointment)
@@ -190,6 +194,7 @@ export const appointmentService = {
         time: appointment.time,
         duration: Number(appointment.duration) || 30,
         notes: appointment.notes || null,
+        branch_id: branchId ?? null,
       }
 
       // Lista de valores de status para probar

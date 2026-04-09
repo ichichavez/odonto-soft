@@ -10,18 +10,20 @@ import { useEffect, useState } from "react"
 import { treatmentService, type Treatment } from "@/services/treatments"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useBranch } from "@/context/branch-context"
 
 export default function TratamientosPage() {
   const [treatments, setTreatments] = useState<Treatment[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const { toast } = useToast()
+  const { activeBranch } = useBranch()
 
   useEffect(() => {
     const fetchTreatments = async () => {
       try {
         setLoading(true)
-        const data = await treatmentService.getAll()
+        const data = await treatmentService.getAll(activeBranch?.id)
         setTreatments(data)
       } catch (error) {
         console.error("Error al cargar tratamientos:", error)
@@ -36,7 +38,7 @@ export default function TratamientosPage() {
     }
 
     fetchTreatments()
-  }, [toast])
+  }, [toast, activeBranch?.id])
 
   const handleSearch = () => {
     if (!searchQuery.trim()) {

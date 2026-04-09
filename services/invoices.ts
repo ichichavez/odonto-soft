@@ -13,19 +13,33 @@ export type MaterialSaleInsert = Database["public"]["Tables"]["material_sales"][
 
 export const invoiceService = {
   // Obtener todas las facturas
-  async getAll() {
+  async getAll(branchId?: string | null) {
     const supabase = createBrowserClient()
-    const { data, error } = await supabase
+    let q = supabase
       .from("invoices")
       .select(`
         *,
         patients (id, first_name, last_name),
         budgets (id, number)
       `)
-      .order("date", { ascending: false })
+    if (branchId) q = q.eq("branch_id", branchId)
+    const { data, error } = await q.order("date", { ascending: false })
 
     if (error) throw error
     return data
+  },
+
+  // Obtener facturas de un paciente (excluye anuladas)
+  async getByPatient(patientId: string) {
+    const supabase = createBrowserClient()
+    const { data, error } = await supabase
+      .from("invoices")
+      .select("id, number, date, total, status")
+      .eq("patient_id", patientId)
+      .neq("status", "anulada")
+      .order("date", { ascending: false })
+    if (error) throw error
+    return data ?? []
   },
 
   // Obtener una factura por ID
@@ -257,7 +271,7 @@ export const invoiceService = {
       costPrice?: number
       profitPercentage?: number
     }>
-  }) {
+  }, branchId?: string | null) {
     const supabase = createBrowserClient()
 
     try {
@@ -285,7 +299,7 @@ export const invoiceService = {
       }
 
       console.log("Insertando factura:", invoice)
-      const { data: invoiceData, error: invoiceError } = await supabase.from("invoices").insert([invoice]).select()
+      const { data: invoiceData, error: invoiceError } = await supabase.from("invoices").insert([{ ...invoice, branch_id: branchId ?? null }]).select()
 
       if (invoiceError) {
         console.error("Error al insertar factura:", invoiceError)

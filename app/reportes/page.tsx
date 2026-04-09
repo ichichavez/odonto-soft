@@ -15,6 +15,7 @@ import { inventoryService } from "@/services/inventory"
 import { treatmentPlanService } from "@/services/treatment-plan"
 import { exportToExcel, exportToPDF } from "@/lib/export"
 import { useClinic } from "@/context/clinic-context"
+import { useBranch } from "@/context/branch-context"
 
 const MONTH_NAMES = [
   "Enero","Febrero","Marzo","Abril","Mayo","Junio",
@@ -52,6 +53,7 @@ function ExportButtons({ onExcel, onPDF }: { onExcel: () => void; onPDF: () => v
 export default function ReportesPage() {
   const { toast } = useToast()
   const { clinic } = useClinic()
+  const { activeBranch } = useBranch()
   const now = new Date()
   const [year, setYear]   = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -70,14 +72,14 @@ export default function ReportesPage() {
   const [loadingMaterials,    setLoadingMaterials]    = useState(true)
   const [loadingPlan,         setLoadingPlan]         = useState(true)
 
-  // Load static data once
+  // Load static data once (filtrado por sucursal activa)
   useEffect(() => {
-    patientService.getAll()
+    patientService.getAll(activeBranch?.id)
       .then(setPatients)
       .catch(() => {})
       .finally(() => setLoadingPatients(false))
 
-    inventoryService.materials.getAll()
+    inventoryService.materials.getAll(activeBranch?.id)
       .then(setMaterials)
       .catch(() => {})
       .finally(() => setLoadingMaterials(false))
@@ -86,14 +88,14 @@ export default function ReportesPage() {
       .then(setPlanItems)
       .catch(() => {})
       .finally(() => setLoadingPlan(false))
-  }, [])
+  }, [activeBranch?.id])
 
   // Load month-dependent data
   useEffect(() => {
     const { from, to } = getRange(year, month)
 
     setLoadingAppointments(true)
-    appointmentService.getAll()
+    appointmentService.getAll(activeBranch?.id)
       .then(data => {
         const filtered = data.filter((a: any) => a.date >= from && a.date <= to)
         setAppointments(filtered)
@@ -102,17 +104,17 @@ export default function ReportesPage() {
       .finally(() => setLoadingAppointments(false))
 
     setLoadingPurchases(true)
-    purchaseService.getByDateRange(from, to)
+    purchaseService.getByDateRange(from, to, activeBranch?.id)
       .then(setPurchases)
       .catch(() => {})
       .finally(() => setLoadingPurchases(false))
 
     setLoadingExpenses(true)
-    expenseService.getByDateRange(from, to)
+    expenseService.getByDateRange(from, to, activeBranch?.id)
       .then(setExpenses)
       .catch(() => {})
       .finally(() => setLoadingExpenses(false))
-  }, [year, month])
+  }, [year, month, activeBranch?.id])
 
   const prevMonth = () => { if (month === 1) { setYear(y=>y-1); setMonth(12) } else setMonth(m=>m-1) }
   const nextMonth = () => { if (month === 12) { setYear(y=>y+1); setMonth(1) } else setMonth(m=>m+1) }

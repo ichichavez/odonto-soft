@@ -23,6 +23,16 @@ export const PAYMENT_METHODS: Record<string, string> = {
 }
 
 export const patientPaymentService = {
+  // Obtener todos los pagos de la clínica (para resumen en el listado)
+  async getAll(): Promise<Pick<PatientPayment, "patient_id" | "amount">[]> {
+    const supabase = createBrowserClient()
+    const { data, error } = await supabase
+      .from("patient_payments")
+      .select("patient_id, amount")
+    if (error) throw error
+    return data ?? []
+  },
+
   async getByPatient(patientId: string): Promise<PatientPayment[]> {
     const supabase = createBrowserClient()
     const { data, error } = await supabase

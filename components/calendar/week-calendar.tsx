@@ -98,9 +98,10 @@ function layoutDay(appts: AppointmentFull[]): LayoutItem[] {
 
 interface WeekCalendarProps {
   dentistFilter?: string
+  branchId?: string
 }
 
-export function WeekCalendar({ dentistFilter = "todos" }: WeekCalendarProps) {
+export function WeekCalendar({ dentistFilter = "todos", branchId }: WeekCalendarProps) {
   const { toast } = useToast()
 
   const [view, setView]             = useState<"week" | "day">("week")
@@ -142,7 +143,7 @@ export function WeekCalendar({ dentistFilter = "todos" }: WeekCalendarProps) {
     try {
       const start = isoDate(daysList[0])
       const end   = isoDate(daysList[daysList.length - 1])
-      const raw   = await appointmentService.getByDateRange(start, end)
+      const raw   = await appointmentService.getByDateRange(start, end, branchId)
       const filtered = filter && filter !== "todos"
         ? (raw as AppointmentFull[]).filter(a => a.dentist_id === filter)
         : (raw as AppointmentFull[])
@@ -152,12 +153,12 @@ export function WeekCalendar({ dentistFilter = "todos" }: WeekCalendarProps) {
     } finally {
       setLoading(false)
     }
-  }, [toast])
+  }, [toast, branchId])
 
   useEffect(() => {
     reload(days, dentistFilter)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart, selectedDay, view, dentistFilter, reloadKey])
+  }, [weekStart, selectedDay, view, dentistFilter, branchId, reloadKey])
 
   // ── Navigation ──────────────────────────────────────────────────────────────
 

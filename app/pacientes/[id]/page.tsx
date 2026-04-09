@@ -20,6 +20,7 @@ import { isValidUUID } from "@/lib/utils"
 import { useClinic } from "@/context/clinic-context"
 import { useAuth } from "@/context/auth-context"
 import { patientPaymentService, PAYMENT_METHODS, type PatientPayment } from "@/services/patient-payments"
+import { invoiceService } from "@/services/invoices"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -44,6 +45,7 @@ export default function PacienteDetallePage() {
   // Payments
   const [payments, setPayments] = useState<PatientPayment[]>([])
   const [paymentsLoading, setPaymentsLoading] = useState(true)
+  const [patientInvoices, setPatientInvoices] = useState<any[]>([])
   const [showPayForm, setShowPayForm] = useState(false)
   const [savingPay, setSavingPay] = useState(false)
   const [payForm, setPayForm] = useState({
@@ -107,7 +109,10 @@ export default function PacienteDetallePage() {
   useEffect(() => {
     if (!patient) return
     loadPayments()
-  }, [patient, loadPayments])
+    invoiceService.getByPatient(params.id)
+      .then(setPatientInvoices)
+      .catch(() => null)
+  }, [patient, loadPayments, params.id])
 
   // Cargar citas del paciente
   useEffect(() => {
@@ -642,6 +647,29 @@ export default function PacienteDetallePage() {
 
         {/* ── Tab Pagos ── */}
         <TabsContent value="pagos" className="mt-6 space-y-4">
+          {/* Resumen financiero */}
+          {(() => {
+            const totalFacturado = patientInvoices.reduce((s, inv) => s + Number(inv.total), 0)
+            const totalPagado    = payments.reduce((s, p) => s + Number(p.amount), 0)
+            const saldo          = totalFacturado - totalPagado
+            return (
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: "Total facturado", value: totalFacturado, color: "text-foreground" },
+                  { label: "Total pagado",    value: totalPagado,    color: "text-green-600"  },
+                  { label: "Saldo pendiente", value: saldo,          color: saldo > 0 ? "text-red-600" : "text-green-600" },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="rounded-lg border bg-card p-4">
+                    <p className="text-xs text-muted-foreground mb-1">{label}</p>
+                    <p className={`text-base font-bold tabular-nums ${color}`}>
+                      {formatCurrency(value)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between pb-3">
               <div>

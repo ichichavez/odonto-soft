@@ -10,16 +10,17 @@ export type BudgetItemInsert = Database["public"]["Tables"]["budget_items"]["Ins
 
 export const budgetService = {
   // Obtener todos los presupuestos
-  async getAll() {
+  async getAll(branchId?: string | null) {
     const supabase = createBrowserClient()
-    const { data, error } = await supabase
+    let q = supabase
       .from("budgets")
       .select(`
         *,
         patients (id, first_name, last_name),
         users (id, name)
       `)
-      .order("date", { ascending: false })
+    if (branchId) q = q.eq("branch_id", branchId)
+    const { data, error } = await q.order("date", { ascending: false })
 
     if (error) throw error
     return data
@@ -53,10 +54,13 @@ export const budgetService = {
   },
 
   // Crear un nuevo presupuesto con sus ítems
-  async create(budget: BudgetInsert, items: BudgetItemInsert[]) {
+  async create(budget: BudgetInsert, items: BudgetItemInsert[], branchId?: string | null) {
     const supabase = createBrowserClient()
     // Iniciar una transacción
-    const { data: budgetData, error: budgetError } = await supabase.from("budgets").insert([budget]).select()
+    const { data: budgetData, error: budgetError } = await supabase
+      .from("budgets")
+      .insert([{ ...budget, branch_id: branchId ?? null }])
+      .select()
 
     if (budgetError) throw budgetError
 

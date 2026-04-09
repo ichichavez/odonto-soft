@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast"
 import { patientService } from "@/services/patients"
 import { useClinic } from "@/context/clinic-context"
 import { useAuth } from "@/context/auth-context"
+import { useBranch } from "@/context/branch-context"
 
 type PatientType = "adulto" | "nino"
 
@@ -49,6 +50,7 @@ export default function NuevoPacientePage() {
   const router = useRouter()
   const { clinic } = useClinic()
   const { user } = useAuth()
+  const { activeBranch } = useBranch()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [patientData, setPatientData] = useState(emptyPatient)
   const [medicalData, setMedicalData] = useState({
@@ -97,7 +99,8 @@ export default function NuevoPacientePage() {
       await patientService.create(
         { ...sanitized, clinic_id: clinic?.id ?? null },
         medicalSanitized,
-        {}
+        {},
+        activeBranch?.id
       )
       toast({ title: "Paciente registrado", description: "El paciente ha sido registrado exitosamente." })
       router.push("/pacientes")

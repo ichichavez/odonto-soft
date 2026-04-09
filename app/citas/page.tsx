@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { userService } from "@/services/users"
 import { WeekCalendar } from "@/components/calendar/week-calendar"
+import { useBranch } from "@/context/branch-context"
 
 export default function CitasPage() {
   const [dentists, setDentists] = useState<any[]>([])
   const [selectedDentist, setSelectedDentist] = useState("todos")
+  const { activeBranch } = useBranch()
 
   useEffect(() => {
     userService.getDentists().then(setDentists).catch(console.error)
@@ -43,7 +45,7 @@ export default function CitasPage() {
       </div>
 
       {/* Calendar */}
-      <WeekCalendar dentistFilter={selectedDentist} />
+      <WeekCalendar dentistFilter={selectedDentist} branchId={activeBranch?.id} />
     </div>
   )
 }

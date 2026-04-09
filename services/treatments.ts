@@ -7,9 +7,11 @@ export type TreatmentUpdate = Database["public"]["Tables"]["treatments"]["Update
 
 export const treatmentService = {
   // Obtener todos los tratamientos
-  async getAll() {
+  async getAll(branchId?: string | null) {
     const supabase = createBrowserClient()
-    const { data, error } = await supabase.from("treatments").select("*").order("name", { ascending: true })
+    let q = supabase.from("treatments").select("*")
+    if (branchId) q = q.eq("branch_id", branchId)
+    const { data, error } = await q.order("name", { ascending: true })
 
     if (error) throw error
     return data
@@ -25,9 +27,13 @@ export const treatmentService = {
   },
 
   // Crear un nuevo tratamiento
-  async create(treatment: TreatmentInsert) {
+  async create(treatment: TreatmentInsert, branchId?: string | null) {
     const supabase = createBrowserClient()
-    const { data, error } = await supabase.from("treatments").insert([treatment]).select().single()
+    const { data, error } = await supabase
+      .from("treatments")
+      .insert([{ ...treatment, branch_id: branchId ?? null }])
+      .select()
+      .single()
 
     if (error) throw error
     return data

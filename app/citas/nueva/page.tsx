@@ -17,10 +17,12 @@ import { treatmentService } from "@/services/treatments"
 import { userService } from "@/services/users"
 import { ArrowLeft, Loader2 } from "lucide-react"
 import Link from "next/link"
+import { useBranch } from "@/context/branch-context"
 
 export default function NuevaCitaPage() {
   const { toast } = useToast()
   const router = useRouter()
+  const { activeBranch } = useBranch()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [patients, setPatients] = useState<any[]>([])
   const [treatments, setTreatments] = useState<any[]>([])
@@ -123,7 +125,7 @@ export default function NuevaCitaPage() {
 
       console.log("📤 Enviando datos completos:", appointmentData)
 
-      const result = await appointmentService.create(appointmentData)
+      const result = await appointmentService.create(appointmentData, activeBranch?.id)
 
       console.log("✅ Resultado exitoso:", result)
 

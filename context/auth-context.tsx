@@ -10,6 +10,8 @@ type UserWithRole = {
   name: string
   role: string
   clinic_id: string | null
+  branch_id: string | null
+  notification_before_minutes: number
 }
 
 type AuthContextType = {
@@ -21,6 +23,7 @@ type AuthContextType = {
   isAuthenticated: boolean
   isSuperAdmin: boolean
   hasPermission: (requiredRoles: string[]) => boolean
+  updateNotificationMinutes: (minutes: number) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -31,7 +34,7 @@ async function fetchProfile(userId: string, email: string | null): Promise<UserW
     const supabase = createBrowserClient()
     const { data } = await supabase
       .from("users")
-      .select("name, role, clinic_id")
+      .select("name, role, clinic_id, branch_id, notification_before_minutes")
       .eq("id", userId)
       .single()
 
@@ -41,6 +44,8 @@ async function fetchProfile(userId: string, email: string | null): Promise<UserW
       name: data?.name ?? email ?? "Usuario",
       role: data?.role ?? "asistente",
       clinic_id: data?.clinic_id ?? null,
+      branch_id: data?.branch_id ?? null,
+      notification_before_minutes: data?.notification_before_minutes ?? 30,
     }
   } catch {
     return {
@@ -49,6 +54,8 @@ async function fetchProfile(userId: string, email: string | null): Promise<UserW
       name: email ?? "Usuario",
       role: "asistente",
       clinic_id: null,
+      branch_id: null,
+      notification_before_minutes: 30,
     }
   }
 }
@@ -155,9 +162,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Redirigir a login si no está autenticado
+  // Redirigir a login si no está autenticado (excluir rutas públicas)
+  const PUBLIC_ROUTES = ["/login", "/precios", "/registro"]
   useEffect(() => {
-    if (!loading && !user && pathname !== "/login") {
+    if (!loading && !user && !PUBLIC_ROUTES.includes(pathname ?? "")) {
       router.push("/login")
     }
   }, [user, loading, pathname, router])
@@ -186,6 +194,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return requiredRoles.includes(user.role)
   }
 
+  const updateNotificationMinutes = async (minutes: number) => {
+    const supabase = createBrowserClient()
+    const { data: { session: currentSession } } = await supabase.auth.getSession()
+    if (!currentSession?.access_token) return
+    await fetch("/api/me", {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${currentSession.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ notification_before_minutes: minutes }),
+    })
+    setUser(prev => prev ? { ...prev, notification_before_minutes: minutes } : null)
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -205,6 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         isSuperAdmin: user?.role === "superadmin",
         hasPermission,
+        updateNotificationMinutes,
       }}
     >
       {children}

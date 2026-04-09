@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useAuth } from "@/context/auth-context"
 import { useClinic } from "@/context/clinic-context"
 import { useToast } from "@/hooks/use-toast"
@@ -11,12 +11,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
-import { SmileIcon as Tooth, Upload, Palette, Building2, Users, FileSignature, Stethoscope, Percent } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
+import { SmileIcon as Tooth, Upload, Palette, Building2, Users, FileSignature, Stethoscope, Percent, UserPlus, Trash2, RefreshCw, MapPin, Pencil, PowerOff, Power } from "lucide-react"
 import Image from "next/image"
 import { hexToHsl, getContrastColor } from "@/lib/color-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CURRENCIES } from "@/lib/currency"
 import { SignaturePad } from "@/components/signature-pad"
+import { createBrowserClient } from "@/lib/supabase"
 
 function ColorPreview({ color }: { color: string }) {
   const isValidHex = /^#[0-9A-Fa-f]{6}$/.test(color)
@@ -62,6 +65,24 @@ export default function SettingsPage() {
   const [savingProfessional, setSavingProfessional] = useState(false)
   const [taxRate, setTaxRate] = useState("10")
   const [savingTax, setSavingTax] = useState(false)
+
+  // ── Gestión de sucursales ─────────────────────────────────────────────
+  const [branches, setBranches] = useState<any[]>([])
+  const [loadingBranches, setLoadingBranches] = useState(false)
+  const [branchDialog, setBranchDialog] = useState(false)
+  const [editingBranch, setEditingBranch] = useState<any | null>(null)
+  const [branchForm, setBranchForm] = useState({ name: "", address: "", phone: "" })
+  const [savingBranch, setSavingBranch] = useState(false)
+
+  // ── Gestión de usuarios ───────────────────────────────────────────────
+  const [clinicUsers, setClinicUsers] = useState<any[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [newUserDialog, setNewUserDialog] = useState(false)
+  const [newUserForm, setNewUserForm] = useState({ name: "", email: "", password: "", role: "asistente" })
+  const [creatingUser, setCreatingUser] = useState(false)
+  const [updatingUserId, setUpdatingUserId] = useState<string | null>(null)
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null)
+
   const [doctorName, setDoctorName] = useState("")
   const [specialty, setSpecialty] = useState("")
   const [professionalRegistration, setProfessionalRegistration] = useState("")
@@ -84,6 +105,198 @@ export default function SettingsPage() {
     setClinicAddress(clinic.address ?? "")
     setClinicPhone(clinic.phone ?? "")
     initialized.current = true
+  }
+
+  // ── Helpers de sucursales ─────────────────────────────────────────────
+  const loadBranches = async () => {
+    setLoadingBranches(true)
+    try {
+      const supabase = createBrowserClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+      const res = await fetch("/api/admin/branches", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      })
+      if (res.ok) setBranches(await res.json())
+    } catch (e: any) {
+      toast({ title: "Error al cargar sucursales", description: e.message, variant: "destructive" })
+    } finally {
+      setLoadingBranches(false)
+    }
+  }
+
+  useEffect(() => { loadBranches() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSaveBranch = async () => {
+    if (!branchForm.name.trim()) {
+      toast({ title: "El nombre es requerido", variant: "destructive" }); return
+    }
+    setSavingBranch(true)
+    try {
+      const supabase = createBrowserClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+
+      const method = editingBranch ? "PATCH" : "POST"
+      const body = editingBranch
+        ? { id: editingBranch.id, ...branchForm }
+        : branchForm
+
+      const res = await fetch("/api/admin/branches", {
+        method,
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      toast({ title: editingBranch ? "Sucursal actualizada" : "Sucursal creada" })
+      setBranchDialog(false)
+      setEditingBranch(null)
+      setBranchForm({ name: "", address: "", phone: "" })
+      await loadBranches()
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" })
+    } finally {
+      setSavingBranch(false)
+    }
+  }
+
+  const handleToggleBranch = async (branch: any) => {
+    try {
+      const supabase = createBrowserClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+      const res = await fetch("/api/admin/branches", {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ id: branch.id, is_active: !branch.is_active }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      toast({ title: branch.is_active ? "Sucursal desactivada" : "Sucursal activada" })
+      await loadBranches()
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" })
+    }
+  }
+
+  const handleNotificationMinutesChange = async (userId: string, minutes: number) => {
+    try {
+      const headers = await getAuthHeader()
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, notification_before_minutes: minutes }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      setClinicUsers(prev => prev.map(u => u.id === userId ? { ...u, notification_before_minutes: minutes } : u))
+      toast({ title: "Preferencia guardada" })
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" })
+    }
+  }
+
+  const handleUserBranchChange = async (userId: string, branchId: string) => {
+    try {
+      const supabase = createBrowserClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) return
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, branch_id: branchId === "ninguna" ? null : branchId }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      setClinicUsers(prev => prev.map(u => u.id === userId ? { ...u, branch_id: branchId === "ninguna" ? null : branchId } : u))
+      toast({ title: "Sucursal actualizada" })
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" })
+    }
+  }
+
+  // ── Helpers de usuarios ───────────────────────────────────────────────
+  const getAuthHeader = async (): Promise<Record<string, string>> => {
+    const supabase = createBrowserClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) return {}
+    return { Authorization: `Bearer ${session.access_token}` }
+  }
+
+  const loadClinicUsers = async () => {
+    setLoadingUsers(true)
+    try {
+      const headers = await getAuthHeader()
+      const res = await fetch("/api/admin/users", { headers })
+      if (res.ok) setClinicUsers(await res.json())
+      else throw new Error(await res.text())
+    } catch (e: any) {
+      toast({ title: "Error al cargar usuarios", description: e.message, variant: "destructive" })
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
+
+  useEffect(() => { loadClinicUsers() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleCreateUser = async () => {
+    const { name, email, password, role } = newUserForm
+    if (!name.trim() || !email.trim() || !password.trim()) {
+      toast({ title: "Completa todos los campos", variant: "destructive" }); return
+    }
+    if (password.length < 6) {
+      toast({ title: "La contraseña debe tener al menos 6 caracteres", variant: "destructive" }); return
+    }
+    setCreatingUser(true)
+    try {
+      const headers = await getAuthHeader()
+      const res = await fetch("/api/admin/users", {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, role }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      toast({ title: "Usuario creado", description: `${name} fue agregado exitosamente.` })
+      setNewUserDialog(false)
+      setNewUserForm({ name: "", email: "", password: "", role: "asistente" })
+      await loadClinicUsers()
+    } catch (e: any) {
+      toast({ title: "Error al crear usuario", description: e.message, variant: "destructive" })
+    } finally {
+      setCreatingUser(false)
+    }
+  }
+
+  const handleRoleChange = async (userId: string, role: string) => {
+    setUpdatingUserId(userId)
+    try {
+      const headers = await getAuthHeader()
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, role }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      setClinicUsers(prev => prev.map(u => u.id === userId ? { ...u, role } : u))
+      toast({ title: "Rol actualizado" })
+    } catch (e: any) {
+      toast({ title: "Error al cambiar rol", description: e.message, variant: "destructive" })
+    } finally {
+      setUpdatingUserId(null)
+    }
+  }
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`¿Eliminar al usuario "${userName}"? Esta acción no se puede deshacer.`)) return
+    setDeletingUserId(userId)
+    try {
+      const headers = await getAuthHeader()
+      const res = await fetch(`/api/admin/users?userId=${userId}`, { method: "DELETE", headers })
+      if (!res.ok) throw new Error(await res.text())
+      setClinicUsers(prev => prev.filter(u => u.id !== userId))
+      toast({ title: "Usuario eliminado" })
+    } catch (e: any) {
+      toast({ title: "Error al eliminar usuario", description: e.message, variant: "destructive" })
+    } finally {
+      setDeletingUserId(null)
+    }
   }
 
   if (user?.role !== "admin") {
@@ -266,6 +479,10 @@ export default function SettingsPage() {
           <TabsTrigger value="usuarios" className="gap-2">
             <Users className="h-4 w-4" />
             Usuarios
+          </TabsTrigger>
+          <TabsTrigger value="sucursales" className="gap-2">
+            <MapPin className="h-4 w-4" />
+            Sucursales
           </TabsTrigger>
         </TabsList>
 
@@ -613,18 +830,367 @@ export default function SettingsPage() {
         {/* Tab: Usuarios */}
         <TabsContent value="usuarios">
           <Card>
-            <CardHeader>
-              <CardTitle>Gestión de usuarios</CardTitle>
-              <CardDescription>Administra los usuarios de tu clínica</CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between gap-4">
+              <div>
+                <CardTitle>Usuarios de la clínica</CardTitle>
+                <CardDescription>Administra quién tiene acceso al sistema</CardDescription>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadClinicUsers}
+                  disabled={loadingUsers}
+                  className="gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${loadingUsers ? "animate-spin" : ""}`} />
+                  Actualizar
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => setNewUserDialog(true)}
+                  className="gap-2"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  Nuevo usuario
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">
-                La gestión avanzada de usuarios estará disponible en la próxima versión.
-              </p>
+              {loadingUsers ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map(i => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              ) : clinicUsers.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">
+                  No hay usuarios registrados en tu clínica.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-3 pr-4 font-medium text-muted-foreground">Nombre</th>
+                        <th className="text-left py-3 pr-4 font-medium text-muted-foreground">Email</th>
+                        <th className="text-left py-3 pr-4 font-medium text-muted-foreground">Rol</th>
+                        <th className="text-left py-3 pr-4 font-medium text-muted-foreground">Aviso de cita</th>
+                        <th className="text-left py-3 font-medium text-muted-foreground">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clinicUsers.map((u) => (
+                        <tr key={u.id} className="border-b last:border-0 hover:bg-muted/30">
+                          <td className="py-3 pr-4 font-medium">
+                            {u.name}
+                            {u.id === user?.id && (
+                              <Badge variant="outline" className="ml-2 text-xs">Tú</Badge>
+                            )}
+                          </td>
+                          <td className="py-3 pr-4 text-muted-foreground">{u.email}</td>
+                          <td className="py-3 pr-4">
+                            {u.role === "superadmin" ? (
+                              <Badge>Superadmin</Badge>
+                            ) : (
+                              <Select
+                                value={u.role}
+                                onValueChange={(role) => handleRoleChange(u.id, role)}
+                                disabled={updatingUserId === u.id || u.id === user?.id}
+                              >
+                                <SelectTrigger className="h-8 w-[140px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="admin">Admin</SelectItem>
+                                  <SelectItem value="dentista">Dentista</SelectItem>
+                                  <SelectItem value="asistente">Asistente</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </td>
+                          <td className="py-3 pr-4">
+                            <Select
+                              value={String(u.notification_before_minutes ?? 30)}
+                              onValueChange={(v) => handleNotificationMinutesChange(u.id, Number(v))}
+                            >
+                              <SelectTrigger className="h-8 w-[110px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="10">10 min</SelectItem>
+                                <SelectItem value="15">15 min</SelectItem>
+                                <SelectItem value="20">20 min</SelectItem>
+                                <SelectItem value="30">30 min</SelectItem>
+                                <SelectItem value="45">45 min</SelectItem>
+                                <SelectItem value="60">60 min</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td className="py-3">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              disabled={deletingUserId === u.id || u.id === user?.id || u.role === "superadmin"}
+                              onClick={() => handleDeleteUser(u.id, u.name)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab: Sucursales */}
+        <TabsContent value="sucursales" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-start justify-between gap-4">
+              <div>
+                <CardTitle>Sucursales</CardTitle>
+                <CardDescription>Gestiona las sedes físicas de tu clínica</CardDescription>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button variant="outline" size="sm" onClick={loadBranches} disabled={loadingBranches} className="gap-2">
+                  <RefreshCw className={`h-4 w-4 ${loadingBranches ? "animate-spin" : ""}`} />
+                  Actualizar
+                </Button>
+                <Button size="sm" onClick={() => { setEditingBranch(null); setBranchForm({ name: "", address: "", phone: "" }); setBranchDialog(true) }} className="gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Nueva sucursal
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingBranches ? (
+                <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
+              ) : branches.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">No hay sucursales registradas.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-3 pr-4 font-medium text-muted-foreground">Sucursal</th>
+                        <th className="text-left py-3 pr-4 font-medium text-muted-foreground">Dirección</th>
+                        <th className="text-left py-3 pr-4 font-medium text-muted-foreground">Teléfono</th>
+                        <th className="text-left py-3 pr-4 font-medium text-muted-foreground">Estado</th>
+                        <th className="text-left py-3 font-medium text-muted-foreground">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {branches.map((b) => (
+                        <tr key={b.id} className="border-b last:border-0 hover:bg-muted/30">
+                          <td className="py-3 pr-4 font-medium">{b.name}</td>
+                          <td className="py-3 pr-4 text-muted-foreground">{b.address || "—"}</td>
+                          <td className="py-3 pr-4 text-muted-foreground">{b.phone || "—"}</td>
+                          <td className="py-3 pr-4">
+                            <Badge variant={b.is_active ? "default" : "secondary"}>
+                              {b.is_active ? "Activa" : "Inactiva"}
+                            </Badge>
+                          </td>
+                          <td className="py-3">
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost" size="icon" className="h-8 w-8"
+                                onClick={() => { setEditingBranch(b); setBranchForm({ name: b.name, address: b.address || "", phone: b.phone || "" }); setBranchDialog(true) }}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost" size="icon" className="h-8 w-8"
+                                onClick={() => handleToggleBranch(b)}
+                              >
+                                {b.is_active ? <PowerOff className="h-4 w-4 text-destructive" /> : <Power className="h-4 w-4 text-green-600" />}
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Usuarios por sucursal */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Usuarios por sucursal</CardTitle>
+              <CardDescription>Asigna cada usuario a su sucursal de trabajo</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingUsers || loadingBranches ? (
+                <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}</div>
+              ) : clinicUsers.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">No hay usuarios registrados.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b">
+                        <th className="text-left py-3 pr-4 font-medium text-muted-foreground">Usuario</th>
+                        <th className="text-left py-3 pr-4 font-medium text-muted-foreground">Rol</th>
+                        <th className="text-left py-3 font-medium text-muted-foreground">Sucursal</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {clinicUsers.map((u) => (
+                        <tr key={u.id} className="border-b last:border-0 hover:bg-muted/30">
+                          <td className="py-3 pr-4 font-medium">{u.name}</td>
+                          <td className="py-3 pr-4 text-muted-foreground capitalize">{u.role}</td>
+                          <td className="py-3">
+                            <Select
+                              value={u.branch_id ?? "ninguna"}
+                              onValueChange={(val) => handleUserBranchChange(u.id, val)}
+                              disabled={u.id === user?.id}
+                            >
+                              <SelectTrigger className="h-8 w-[200px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="ninguna">Sin sucursal</SelectItem>
+                                {branches.map((b) => (
+                                  <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Dialog: Sucursal */}
+      <Dialog open={branchDialog} onOpenChange={setBranchDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingBranch ? "Editar sucursal" : "Nueva sucursal"}</DialogTitle>
+            <DialogDescription>
+              {editingBranch ? "Actualiza los datos de la sucursal." : "Agrega una nueva sede a tu clínica."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="br-name">Nombre *</Label>
+              <Input
+                id="br-name"
+                value={branchForm.name}
+                onChange={(e) => setBranchForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Ej: Sede Norte"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="br-address">Dirección</Label>
+              <Input
+                id="br-address"
+                value={branchForm.address}
+                onChange={(e) => setBranchForm(f => ({ ...f, address: e.target.value }))}
+                placeholder="Av. Principal 123"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="br-phone">Teléfono</Label>
+              <Input
+                id="br-phone"
+                value={branchForm.phone}
+                onChange={(e) => setBranchForm(f => ({ ...f, phone: e.target.value }))}
+                placeholder="+595 21 xxxxxx"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBranchDialog(false)} disabled={savingBranch}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveBranch} disabled={savingBranch} className="gap-2">
+              <MapPin className="h-4 w-4" />
+              {savingBranch ? "Guardando..." : editingBranch ? "Guardar cambios" : "Crear sucursal"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Nuevo usuario */}
+      <Dialog open={newUserDialog} onOpenChange={setNewUserDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nuevo usuario</DialogTitle>
+            <DialogDescription>
+              Crea una cuenta para un miembro de tu clínica. Recibirá acceso inmediato.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="nu-name">Nombre completo</Label>
+              <Input
+                id="nu-name"
+                value={newUserForm.name}
+                onChange={(e) => setNewUserForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Ej: Ana Torres"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nu-email">Correo electrónico</Label>
+              <Input
+                id="nu-email"
+                type="email"
+                value={newUserForm.email}
+                onChange={(e) => setNewUserForm(f => ({ ...f, email: e.target.value }))}
+                placeholder="ana@clinica.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nu-password">Contraseña temporal</Label>
+              <Input
+                id="nu-password"
+                type="password"
+                value={newUserForm.password}
+                onChange={(e) => setNewUserForm(f => ({ ...f, password: e.target.value }))}
+                placeholder="Mínimo 6 caracteres"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Rol</Label>
+              <Select
+                value={newUserForm.role}
+                onValueChange={(role) => setNewUserForm(f => ({ ...f, role }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="dentista">Dentista</SelectItem>
+                  <SelectItem value="asistente">Asistente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setNewUserDialog(false)} disabled={creatingUser}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCreateUser} disabled={creatingUser} className="gap-2">
+              <UserPlus className="h-4 w-4" />
+              {creatingUser ? "Creando..." : "Crear usuario"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

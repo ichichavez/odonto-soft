@@ -9,6 +9,7 @@ import { useEffect, useState } from "react"
 import { inventoryService, type Material } from "@/services/inventory"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useBranch } from "@/context/branch-context"
 import { Badge } from "@/components/ui/badge"
 import { ArrowDown, ArrowUp, Package, Plus, Search, Settings } from "lucide-react"
 import Link from "next/link"
@@ -22,6 +23,7 @@ export default function InventarioPage() {
   const [categoryFilter, setCategoryFilter] = useState("todas")
   const [categories, setCategories] = useState<any[]>([])
   const { toast } = useToast()
+  const { activeBranch } = useBranch()
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -40,7 +42,7 @@ export default function InventarioPage() {
     const fetchMaterials = async () => {
       try {
         setLoading(true)
-        const data = await inventoryService.materials.getAll()
+        const data = await inventoryService.materials.getAll(activeBranch?.id)
         setMaterials(data)
 
         const lowStock = await inventoryService.materials.getLowStock()
@@ -58,7 +60,7 @@ export default function InventarioPage() {
     }
 
     fetchMaterials()
-  }, [toast])
+  }, [toast, activeBranch?.id])
 
   const handleSearch = () => {
     // Implementar búsqueda
@@ -296,12 +298,13 @@ function MovimientosInventario() {
   const [movements, setMovements] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
+  const { activeBranch } = useBranch()
 
   useEffect(() => {
     const fetchMovements = async () => {
       try {
         setLoading(true)
-        const data = await inventoryService.movements.getAll()
+        const data = await inventoryService.movements.getAll(activeBranch?.id)
         setMovements(data)
       } catch (error) {
         console.error("Error al cargar movimientos:", error)
@@ -316,7 +319,7 @@ function MovimientosInventario() {
     }
 
     fetchMovements()
-  }, [toast])
+  }, [toast, activeBranch?.id])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)

@@ -3,6 +3,7 @@ import { createBrowserClient } from "@/lib/supabase"
 export type Purchase = {
   id: string
   clinic_id: string | null
+  branch_id: string | null
   created_by: string | null
   date: string
   supplier: string | null
@@ -35,11 +36,11 @@ export type NewPurchaseItem = {
 }
 
 export const purchaseService = {
-  async getAll(): Promise<PurchaseWithItems[]> {
+  async getAll(branchId?: string | null): Promise<PurchaseWithItems[]> {
     const supabase = createBrowserClient()
-    const { data, error } = await supabase
-      .from("purchases")
-      .select(`*, users(name), purchase_items(*, materials(name, unit))`)
+    let q = supabase.from("purchases").select(`*, users(name), purchase_items(*, materials(name, unit))`)
+    if (branchId) q = q.eq("branch_id", branchId)
+    const { data, error } = await q
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
     if (error) throw error
@@ -57,14 +58,15 @@ export const purchaseService = {
     return data as PurchaseWithItems
   },
 
-  async getByDateRange(from: string, to: string): Promise<PurchaseWithItems[]> {
+  async getByDateRange(from: string, to: string, branchId?: string | null): Promise<PurchaseWithItems[]> {
     const supabase = createBrowserClient()
-    const { data, error } = await supabase
+    let q = supabase
       .from("purchases")
       .select(`*, users(name), purchase_items(*, materials(name, unit))`)
       .gte("date", from)
       .lte("date", to)
-      .order("date", { ascending: false })
+    if (branchId) q = q.eq("branch_id", branchId)
+    const { data, error } = await q.order("date", { ascending: false })
     if (error) throw error
     return data as PurchaseWithItems[]
   },
@@ -73,14 +75,15 @@ export const purchaseService = {
   async create(
     purchase: Omit<Purchase, "id" | "created_at">,
     items: NewPurchaseItem[],
-    userId: string
+    userId: string,
+    branchId?: string | null
   ): Promise<Purchase> {
     const supabase = createBrowserClient()
 
     // 1. Insertar la compra
     const { data: purchaseData, error: purchaseError } = await supabase
       .from("purchases")
-      .insert([purchase])
+      .insert([{ ...purchase, branch_id: branchId ?? null }])
       .select()
       .single()
     if (purchaseError) throw purchaseError

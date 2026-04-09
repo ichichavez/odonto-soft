@@ -16,10 +16,12 @@ import { inventoryService } from "@/services/inventory"
 import { useToast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useBranch } from "@/context/branch-context"
 
 export default function NuevoMaterialPage() {
   const { toast } = useToast()
   const router = useRouter()
+  const { activeBranch } = useBranch()
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -89,7 +91,7 @@ export default function NuevoMaterialPage() {
     setIsSubmitting(true)
 
     try {
-      await inventoryService.materials.create(formData)
+      await inventoryService.materials.create(formData, activeBranch?.id)
 
       toast({
         title: "Material creado",

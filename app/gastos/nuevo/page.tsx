@@ -21,12 +21,14 @@ import {
 } from "@/services/expenses"
 import { useClinic } from "@/context/clinic-context"
 import { useAuth } from "@/context/auth-context"
+import { useBranch } from "@/context/branch-context"
 
 export default function NuevoGastoPage() {
   const router = useRouter()
   const { toast } = useToast()
   const { clinic } = useClinic()
   const { user } = useAuth()
+  const { activeBranch } = useBranch()
   const [saving, setSaving] = useState(false)
 
   const [form, setForm] = useState({
@@ -54,6 +56,7 @@ export default function NuevoGastoPage() {
     try {
       await expenseService.create({
         clinic_id: clinic?.id ?? null,
+        branch_id: null,
         created_by: user?.id ?? null,
         date: form.date,
         category: form.category,
@@ -61,7 +64,7 @@ export default function NuevoGastoPage() {
         amount,
         payment_method: form.payment_method,
         notes: form.notes.trim() || null,
-      })
+      }, activeBranch?.id)
       toast({ title: "Gasto registrado", description: "El gasto fue guardado exitosamente." })
       router.push("/gastos")
     } catch {

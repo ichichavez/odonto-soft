@@ -1,67 +1,72 @@
 import { NextResponse } from "next/server"
 import Stripe from "stripe"
+import { stripe } from "@/lib/stripe"
 import { createServerClient } from "@/lib/supabase"
 
-// Next.js App Router reads raw body automatically — no bodyParser config needed
 export async function POST(request: Request) {
   const rawBody = await request.text()
   const sig = request.headers.get("stripe-signature")
 
-  const secret = process.env.STRIPE_SECRET_KEY
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
-
-  if (!secret || secret === "sk_test_placeholder") {
-    return NextResponse.json({ error: "Stripe no configurado" }, { status: 500 })
-  }
-
-  if (!webhookSecret || webhookSecret === "whsec_placeholder") {
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
     return NextResponse.json({ error: "Webhook secret no configurado" }, { status: 500 })
   }
 
-  const stripe = new Stripe(secret)
-
   let event: Stripe.Event
   try {
-    event = stripe.webhooks.constructEvent(rawBody, sig!, webhookSecret)
+    event = stripe.webhooks.constructEvent(rawBody, sig!, process.env.STRIPE_WEBHOOK_SECRET)
   } catch (err: any) {
+    console.error("[stripe webhook] Firma inválida:", err.message)
     return NextResponse.json({ error: `Webhook error: ${err.message}` }, { status: 400 })
   }
 
   const supabase = createServerClient()
 
-  const PLAN_MAP: Record<string, string> = {
-    [process.env.STRIPE_PRICE_PRO_MONTHLY ?? ""]: "pro",
-    [process.env.STRIPE_PRICE_PRO_ANNUAL ?? ""]: "pro",
-    [process.env.STRIPE_PRICE_ENTERPRISE_MONTHLY ?? ""]: "enterprise",
-    [process.env.STRIPE_PRICE_ENTERPRISE_ANNUAL ?? ""]: "enterprise",
+  // ── Helper: sync subscription row ────────────────────────────────────────
+
+  async function syncSubscription(sub: Stripe.Subscription) {
+    const clinicId = sub.metadata?.clinic_id
+    const plan = sub.metadata?.plan ?? "basico"
+    if (!clinicId) return
+
+    await (supabase as any).from("subscriptions").upsert(
+      {
+        clinic_id: clinicId,
+        stripe_customer_id: sub.customer as string,
+        stripe_subscription_id: sub.id,
+        stripe_price_id: sub.items.data[0]?.price?.id ?? null,
+        plan,
+        status: sub.status,
+        current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
+        current_period_end:   new Date(sub.current_period_end   * 1000).toISOString(),
+        cancel_at_period_end: sub.cancel_at_period_end,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "clinic_id" }
+    )
+
+    // Sincronizar status de la clínica
+    const clinicStatus =
+      sub.status === "active" || sub.status === "trialing" ? "active" : "suspended"
+    await supabase.from("clinics").update({ status: clinicStatus } as any).eq("id", clinicId)
   }
 
+  // ── Event handlers ────────────────────────────────────────────────────────
+
   switch (event.type) {
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.CheckoutSession
+      if (session.mode === "subscription" && session.subscription) {
+        const subscription = await stripe.subscriptions.retrieve(
+          session.subscription as string
+        )
+        await syncSubscription(subscription)
+      }
+      break
+    }
+
     case "customer.subscription.created":
     case "customer.subscription.updated": {
-      const sub = event.data.object as Stripe.Subscription
-      const clinicId = sub.metadata?.clinic_id
-
-      if (!clinicId) break
-
-      const priceId = sub.items.data[0]?.price?.id ?? ""
-      const plan = PLAN_MAP[priceId] ?? "pro"
-
-      await supabase.from("subscriptions").upsert(
-        {
-          clinic_id: clinicId,
-          stripe_customer_id: sub.customer as string,
-          stripe_subscription_id: sub.id,
-          stripe_price_id: priceId,
-          plan,
-          status: sub.status,
-          current_period_start: new Date(sub.current_period_start * 1000).toISOString(),
-          current_period_end: new Date(sub.current_period_end * 1000).toISOString(),
-          cancel_at_period_end: sub.cancel_at_period_end,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "clinic_id" }
-      )
+      await syncSubscription(event.data.object as Stripe.Subscription)
       break
     }
 
@@ -70,10 +75,12 @@ export async function POST(request: Request) {
       const clinicId = sub.metadata?.clinic_id
       if (!clinicId) break
 
-      await supabase
+      await (supabase as any)
         .from("subscriptions")
         .update({ status: "canceled", updated_at: new Date().toISOString() })
         .eq("clinic_id", clinicId)
+
+      await supabase.from("clinics").update({ status: "suspended" } as any).eq("id", clinicId)
       break
     }
 
@@ -81,7 +88,7 @@ export async function POST(request: Request) {
       const invoice = event.data.object as Stripe.Invoice
       const customerId = invoice.customer as string
 
-      await supabase
+      await (supabase as any)
         .from("subscriptions")
         .update({ status: "past_due", updated_at: new Date().toISOString() })
         .eq("stripe_customer_id", customerId)
@@ -89,7 +96,6 @@ export async function POST(request: Request) {
     }
 
     default:
-      // Unhandled event type — return ok
       break
   }
 

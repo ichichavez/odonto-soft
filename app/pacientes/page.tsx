@@ -7,20 +7,31 @@ import { Plus, Search } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { patientService, type Patient } from "@/services/patients"
+import { invoiceService } from "@/services/invoices"
+import { patientPaymentService } from "@/services/patient-payments"
 import { useToast } from "@/hooks/use-toast"
 import { Skeleton } from "@/components/ui/skeleton"
+import { useBranch } from "@/context/branch-context"
+import { formatCurrency } from "@/lib/currency"
+import { useClinic } from "@/context/clinic-context"
+
+type Balance = { facturado: number; pagado: number; saldo: number }
 
 export default function PacientesPage() {
   const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
+  const [balances, setBalances] = useState<Map<string, Balance>>(new Map())
+  const [balancesLoading, setBalancesLoading] = useState(true)
   const { toast } = useToast()
+  const { activeBranch } = useBranch()
+  const { clinic } = useClinic()
 
   useEffect(() => {
     const fetchPatients = async () => {
       try {
         setLoading(true)
-        const data = await patientService.getAll()
+        const data = await patientService.getAll(activeBranch?.id)
         setPatients(data)
       } catch (error) {
         console.error("Error al cargar pacientes:", error)
@@ -35,19 +46,52 @@ export default function PacientesPage() {
     }
 
     fetchPatients()
-  }, [toast])
+  }, [toast, activeBranch?.id])
+
+  // Cargar saldos (facturas vs pagos) en paralelo
+  useEffect(() => {
+    const loadBalances = async () => {
+      setBalancesLoading(true)
+      try {
+        const [invoices, payments] = await Promise.all([
+          invoiceService.getAll(activeBranch?.id),
+          patientPaymentService.getAll(),
+        ])
+        const map = new Map<string, Balance>()
+        for (const inv of invoices) {
+          if (!inv.patient_id) continue
+          const b = map.get(inv.patient_id) ?? { facturado: 0, pagado: 0, saldo: 0 }
+          b.facturado += Number(inv.total) || 0
+          map.set(inv.patient_id, b)
+        }
+        for (const pay of payments) {
+          if (!pay.patient_id) continue
+          const b = map.get(pay.patient_id) ?? { facturado: 0, pagado: 0, saldo: 0 }
+          b.pagado += Number(pay.amount) || 0
+          map.set(pay.patient_id, b)
+        }
+        for (const b of map.values()) b.saldo = b.facturado - b.pagado
+        setBalances(map)
+      } catch {
+        // silencioso — no rompe el listado
+      } finally {
+        setBalancesLoading(false)
+      }
+    }
+    loadBalances()
+  }, [activeBranch?.id])
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) {
       // Si la búsqueda está vacía, cargar todos los pacientes
-      const data = await patientService.getAll()
+      const data = await patientService.getAll(activeBranch?.id)
       setPatients(data)
       return
     }
 
     try {
       setLoading(true)
-      const data = await patientService.search(searchQuery)
+      const data = await patientService.search(searchQuery, activeBranch?.id)
       setPatients(data)
     } catch (error) {
       console.error("Error al buscar pacientes:", error)
@@ -105,6 +149,7 @@ export default function PacientesPage() {
               <TableHead>Teléfono</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Fecha de Nacimiento</TableHead>
+              <TableHead className="text-right">Saldo pendiente</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -113,21 +158,12 @@ export default function PacientesPage() {
               // Esqueletos de carga
               Array.from({ length: 5 }).map((_, index) => (
                 <TableRow key={index}>
-                  <TableCell>
-                    <Skeleton className="h-4 w-16" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-32" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-24" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-40" />
-                  </TableCell>
-                  <TableCell>
-                    <Skeleton className="h-4 w-24" />
-                  </TableCell>
+                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                  <TableCell><Skeleton className="h-5 w-24 ml-auto" /></TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       <Skeleton className="h-8 w-12" />
@@ -152,6 +188,22 @@ export default function PacientesPage() {
                   <TableCell>{patient.phone || "N/A"}</TableCell>
                   <TableCell>{patient.email || "N/A"}</TableCell>
                   <TableCell>{formatDate(patient.birth_date)}</TableCell>
+                  <TableCell className="text-right">
+                    {balancesLoading ? (
+                      <Skeleton className="h-5 w-20 ml-auto" />
+                    ) : (() => {
+                      const b = balances.get(patient.id)
+                      const saldo = b?.saldo ?? 0
+                      if (saldo <= 0) return (
+                        <span className="text-xs font-medium text-green-600">Al día</span>
+                      )
+                      return (
+                        <span className="text-xs font-semibold text-red-600 tabular-nums">
+                          {formatCurrency(saldo, clinic?.currency ?? "PYG")}
+                        </span>
+                      )
+                    })()}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="sm" asChild>
                       <Link href={`/pacientes/${patient.id}`}>Ver</Link>

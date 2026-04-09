@@ -16,6 +16,7 @@ import { purchaseService, type NewPurchaseItem } from "@/services/purchases"
 import { inventoryService } from "@/services/inventory"
 import { useClinic } from "@/context/clinic-context"
 import { useAuth } from "@/context/auth-context"
+import { useBranch } from "@/context/branch-context"
 
 interface FormItem extends NewPurchaseItem { _key: number }
 let keyCounter = 0
@@ -35,6 +36,7 @@ export default function NuevaCompraPage() {
   const { toast } = useToast()
   const { clinic } = useClinic()
   const { user } = useAuth()
+  const { activeBranch } = useBranch()
   const [saving, setSaving] = useState(false)
   const [materials, setMaterials] = useState<any[]>([])
 
@@ -98,7 +100,8 @@ export default function NuevaCompraPage() {
           total: grandTotal,
         },
         items.map(({ _key, ...rest }) => rest),
-        user.id
+        user.id,
+        activeBranch?.id
       )
       toast({ title: "Compra registrada", description: "El stock de los materiales fue actualizado." })
       router.push(`/compras/${purchase.id}`)

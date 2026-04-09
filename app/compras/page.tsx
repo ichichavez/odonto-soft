@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { useToast } from "@/hooks/use-toast"
 import { ShoppingBag, Plus, ChevronLeft, ChevronRight, Trash2, Eye } from "lucide-react"
 import { purchaseService, type PurchaseWithItems } from "@/services/purchases"
+import { useBranch } from "@/context/branch-context"
 
 const MONTH_NAMES = [
   "Enero","Febrero","Marzo","Abril","Mayo","Junio",
@@ -26,6 +27,7 @@ function getRange(year: number, month: number) {
 
 export default function ComprasPage() {
   const { toast } = useToast()
+  const { activeBranch } = useBranch()
   const now = new Date()
   const [year, setYear]   = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -37,13 +39,13 @@ export default function ComprasPage() {
     setLoading(true)
     try {
       const { from, to } = getRange(year, month)
-      setPurchases(await purchaseService.getByDateRange(from, to))
+      setPurchases(await purchaseService.getByDateRange(from, to, activeBranch?.id))
     } catch {
       toast({ title: "Error", description: "No se pudieron cargar las compras", variant: "destructive" })
     } finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [year, month]) // eslint-disable-line
+  useEffect(() => { load() }, [year, month, activeBranch?.id]) // eslint-disable-line
 
   const prevMonth = () => { if (month === 1) { setYear(y=>y-1); setMonth(12) } else setMonth(m=>m-1) }
   const nextMonth = () => { if (month === 12) { setYear(y=>y+1); setMonth(1) } else setMonth(m=>m+1) }

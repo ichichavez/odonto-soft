@@ -149,16 +149,24 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900 gap-2"
-            onClick={handleHardReset}
-            disabled={isLoading}
-          >
-            <RotateCcw className="h-3.5 w-3.5" />
-            ¿Problemas para ingresar? Limpiar sesión
-          </Button>
+          <div className="flex flex-col gap-2">
+            <p className="text-center text-sm text-zinc-600">
+              ¿No tenés cuenta?{" "}
+              <a href="/precios" className="text-zinc-400 hover:text-white transition-colors">
+                Ver planes y registrarte →
+              </a>
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full text-zinc-700 hover:text-zinc-400 hover:bg-zinc-900 gap-2"
+              onClick={handleHardReset}
+              disabled={isLoading}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              ¿Problemas para ingresar? Limpiar sesión
+            </Button>
+          </div>
         </div>
       </div>
     </div>
