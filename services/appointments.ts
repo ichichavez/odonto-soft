@@ -56,6 +56,33 @@ export const appointmentService = {
     }
   },
 
+  // Obtener citas en un rango de fechas
+  async getByDateRange(startDate: string, endDate: string) {
+    try {
+      const supabase = createBrowserClient()
+      const tableName = await this.getTableName()
+
+      const { data, error } = await supabase
+        .from(tableName as any)
+        .select(`
+          *,
+          patients (id, first_name, last_name),
+          users (id, name),
+          treatments (id, name, price)
+        `)
+        .gte("date", startDate)
+        .lte("date", endDate)
+        .order("date", { ascending: true })
+        .order("time", { ascending: true })
+
+      if (error) throw new Error(`Error al obtener citas: ${error.message}`)
+      return data || []
+    } catch (error) {
+      console.error("Error in getByDateRange:", error)
+      throw error
+    }
+  },
+
   // Obtener citas por fecha
   async getByDate(date: string) {
     try {
