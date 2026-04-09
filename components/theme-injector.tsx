@@ -8,7 +8,7 @@ export function ThemeInjector() {
   const { clinic } = useClinic()
 
   useEffect(() => {
-    const color = clinic?.primary_color || "#10b981"
+    const color = clinic?.primary_color || "#a2d5e6"
 
     try {
       const hsl = hexToHsl(color)

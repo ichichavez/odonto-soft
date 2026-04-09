@@ -5,9 +5,9 @@ import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from "@/context/auth-context"
 import { ClinicProvider } from "@/context/clinic-context"
 import { NotificationProvider } from "@/context/notification-context"
-import { AppSidebar } from "@/components/app-sidebar"
 import { ThemeInjector } from "@/components/theme-injector"
 import { ErrorBoundary } from "@/components/error-boundary"
+import { Shell } from "@/components/shell"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -29,12 +29,7 @@ export default function RootLayout({
             <ClinicProvider>
               <NotificationProvider>
                 <ThemeInjector />
-                <div className="flex min-h-screen">
-                  <AppSidebar />
-                  <main className="flex-1 min-w-0 pt-14 lg:pt-0">
-                    {children}
-                  </main>
-                </div>
+                <Shell>{children}</Shell>
                 <Toaster />
               </NotificationProvider>
             </ClinicProvider>

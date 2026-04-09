@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
 import { Eye, EyeOff, SmileIcon as Tooth, RotateCcw } from "lucide-react"
 import { useAuth } from "@/context/auth-context"
@@ -22,8 +21,6 @@ export default function LoginPage() {
   const { toast } = useToast()
   const { signIn } = useAuth()
 
-  // Al entrar en /login siempre limpiamos datos de sesión rancios.
-  // Esto evita que un token expirado bloquee un nuevo inicio de sesión.
   useEffect(() => {
     clearAllSupabaseData()
   }, [])
@@ -34,16 +31,9 @@ export default function LoginPage() {
 
     try {
       const { error } = await signIn(email, password)
+      if (error) throw error
 
-      if (error) {
-        throw error
-      }
-
-      toast({
-        title: "Inicio de sesión exitoso",
-        description: "Bienvenido/a al sistema",
-      })
-
+      toast({ title: "Inicio de sesión exitoso", description: "Bienvenido/a al sistema" })
       router.push("/")
     } catch (error: any) {
       toast({
@@ -58,28 +48,52 @@ export default function LoginPage() {
 
   const handleHardReset = () => {
     clearAllSupabaseData()
-    // Recargar la página para que el cliente de Supabase arranque completamente limpio
     window.location.reload()
     toast({ title: "Sesión limpiada", description: "Vuelve a iniciar sesión." })
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-emerald-50 to-white p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="space-y-2 text-center pb-6">
-          <div className="flex justify-center mb-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary shadow-md">
-              <Tooth className="h-9 w-9 text-primary-foreground" />
+    <div className="flex min-h-screen bg-black">
+      {/* Panel izquierdo — branding (solo desktop) */}
+      <div className="hidden lg:flex lg:w-1/2 flex-col items-center justify-center gap-6 p-12 bg-zinc-950 border-r border-zinc-800">
+        <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-[#a2d5e6]/15 border border-[#a2d5e6]/30">
+          <Tooth className="h-10 w-10 text-[#a2d5e6]" />
+        </div>
+        <div className="text-center space-y-2">
+          <h1 className="text-4xl font-bold text-white tracking-tight">OdontoSoft</h1>
+          <p className="text-zinc-400 text-lg">Gestión integral para consultorios odontológicos</p>
+        </div>
+        <div className="mt-8 grid grid-cols-1 gap-3 w-full max-w-xs text-sm text-zinc-500">
+          {["Agenda de citas", "Ficha del paciente", "Presupuestos", "Reportes PDF"].map(f => (
+            <div key={f} className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-[#a2d5e6]" />
+              {f}
             </div>
-          </div>
-          <CardTitle className="text-2xl font-bold tracking-tight">OdontoSoft</CardTitle>
-          <CardDescription>Ingrese sus credenciales para acceder al sistema</CardDescription>
-        </CardHeader>
+          ))}
+        </div>
+      </div>
 
-        <CardContent className="space-y-4">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Correo electrónico</Label>
+      {/* Panel derecho — formulario */}
+      <div className="flex flex-1 items-center justify-center p-6">
+        <div className="w-full max-w-sm space-y-8">
+          {/* Logo móvil */}
+          <div className="flex lg:hidden flex-col items-center gap-3">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#a2d5e6]/15 border border-[#a2d5e6]/30">
+              <Tooth className="h-7 w-7 text-[#a2d5e6]" />
+            </div>
+            <h1 className="text-2xl font-bold text-white">OdontoSoft</h1>
+          </div>
+
+          <div className="space-y-1">
+            <h2 className="text-xl font-semibold text-white">Iniciar sesión</h2>
+            <p className="text-sm text-zinc-400">Ingresá tus credenciales para continuar</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-1.5">
+              <Label htmlFor="email" className="text-zinc-300 text-sm">
+                Correo electrónico
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -88,10 +102,14 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
+                className="bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-600 focus-visible:ring-[#a2d5e6]/50 h-11"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="password" className="text-zinc-300 text-sm">
+                Contraseña
+              </Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -100,48 +118,49 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   disabled={isLoading}
+                  className="bg-zinc-900 border-zinc-700 text-white placeholder:text-zinc-600 focus-visible:ring-[#a2d5e6]/50 h-11 pr-10"
                 />
-                <Button
+                <button
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3"
                   onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  <span className="sr-only">{showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}</span>
-                </Button>
+                  <span className="sr-only">{showPassword ? "Ocultar" : "Mostrar"} contraseña</span>
+                </button>
               </div>
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full h-11 bg-[#a2d5e6] hover:bg-[#8fcbde] text-zinc-900 font-semibold transition-colors"
+            >
               {isLoading ? "Iniciando sesión..." : "Iniciar sesión"}
             </Button>
           </form>
-        </CardContent>
 
-        <CardFooter className="flex flex-col space-y-3 pt-0">
-          <div className="relative w-full">
+          <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
+              <span className="w-full border-t border-zinc-800" />
             </div>
             <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-card px-2 text-muted-foreground">o</span>
+              <span className="bg-black px-2 text-zinc-600">o</span>
             </div>
           </div>
 
-          {/* Botón de emergencia — limpia todo sin abrir DevTools */}
           <Button
             variant="ghost"
             size="sm"
-            className="w-full text-muted-foreground hover:text-foreground gap-2"
+            className="w-full text-zinc-600 hover:text-zinc-400 hover:bg-zinc-900 gap-2"
             onClick={handleHardReset}
             disabled={isLoading}
           >
             <RotateCcw className="h-3.5 w-3.5" />
             ¿Problemas para ingresar? Limpiar sesión
           </Button>
-        </CardFooter>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }
