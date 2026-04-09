@@ -1,12 +1,13 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import { useRouter } from "next/navigation"
 import { ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { appointmentService } from "@/services/appointments"
 import { useToast } from "@/hooks/use-toast"
+import { NewAppointmentSheet } from "./new-appointment-sheet"
+import { AppointmentDetailSheet } from "./appointment-detail-sheet"
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -35,8 +36,8 @@ const DEFAULT_CLASS = "border-gray-400 bg-gray-50 text-gray-900 dark:bg-gray-900
 
 function getWeekStart(d: Date): Date {
   const clone = new Date(d)
-  const day = clone.getDay()            // 0=Sun
-  const offset = day === 0 ? -6 : 1 - day // shift to Monday
+  const day   = clone.getDay()
+  const offset = day === 0 ? -6 : 1 - day
   clone.setDate(clone.getDate() + offset)
   clone.setHours(0, 0, 0, 0)
   return clone
@@ -57,31 +58,30 @@ function minToTime(min: number): string {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00`
 }
 
-// ── Layout helper — assigns horizontal columns to overlapping appointments ──────
-
+// Assign horizontal columns to overlapping appointments
 interface AppointmentFull {
-  id: string
-  date: string
-  time: string
-  duration: number
-  status: string
+  id:         string
+  date:       string
+  time:       string
+  duration:   number
+  status:     string
   dentist_id: string
-  patients?: { id: string; first_name: string; last_name: string } | null
+  patients?:  { id: string; first_name: string; last_name: string } | null
   treatments?: { id: string; name: string } | null
 }
 
 interface LayoutItem {
-  appt: AppointmentFull
-  col: number
+  appt:  AppointmentFull
+  col:   number
   total: number
 }
 
 function layoutDay(appts: AppointmentFull[]): LayoutItem[] {
   if (appts.length === 0) return []
-  const sorted = [...appts].sort((a, b) => timeToMin(a.time) - timeToMin(b.time))
-  const colEnds: number[] = [] // end minute of last appt in each column
+  const sorted  = [...appts].sort((a, b) => timeToMin(a.time) - timeToMin(b.time))
+  const colEnds: number[] = []
 
-  const assigned: Array<{ appt: AppointmentFull; col: number }> = sorted.map(appt => {
+  const assigned = sorted.map(appt => {
     const start = timeToMin(appt.time)
     const end   = start + Math.max(1, appt.duration || 30)
     let c = colEnds.findIndex(e => e <= start)
@@ -101,19 +101,23 @@ interface WeekCalendarProps {
 }
 
 export function WeekCalendar({ dentistFilter = "todos" }: WeekCalendarProps) {
-  const router  = useRouter()
   const { toast } = useToast()
 
-  const [view, setView] = useState<"week" | "day">("week")
-  const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()))
+  const [view, setView]             = useState<"week" | "day">("week")
+  const [weekStart, setWeekStart]   = useState<Date>(() => getWeekStart(new Date()))
   const [selectedDay, setSelectedDay] = useState<Date>(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0); return d
   })
   const [appointments, setAppointments] = useState<AppointmentFull[]>([])
-  const [loading, setLoading] = useState(true)
-  const [now, setNow] = useState(() => new Date())
+  const [loading, setLoading]       = useState(true)
+  const [now, setNow]               = useState(() => new Date())
+  const [reloadKey, setReloadKey]   = useState(0)
 
-  // Red "current time" line updates every minute
+  // Sheet state
+  const [newSlot, setNewSlot]         = useState<{ date: string; time: string } | null>(null)
+  const [detailId, setDetailId]       = useState<string | null>(null)
+
+  // Current time ticker
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(id)
@@ -153,7 +157,7 @@ export function WeekCalendar({ dentistFilter = "todos" }: WeekCalendarProps) {
   useEffect(() => {
     reload(days, dentistFilter)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart, selectedDay, view, dentistFilter])
+  }, [weekStart, selectedDay, view, dentistFilter, reloadKey])
 
   // ── Navigation ──────────────────────────────────────────────────────────────
 
@@ -169,6 +173,26 @@ export function WeekCalendar({ dentistFilter = "todos" }: WeekCalendarProps) {
     const today = new Date(); today.setHours(0, 0, 0, 0)
     setWeekStart(getWeekStart(today))
     setSelectedDay(today)
+  }
+
+  // ── Column click (empty slot) ───────────────────────────────────────────────
+
+  const handleColumnClick = (e: React.MouseEvent<HTMLDivElement>, day: Date) => {
+    // Ignore if clicked directly on an appointment block
+    if ((e.target as HTMLElement).closest("[data-appt]")) return
+
+    const ds  = isoDate(day)
+    const col = colRefs.current[ds]
+    if (!col) return
+
+    const rect   = col.getBoundingClientRect()
+    const relY   = e.clientY - rect.top
+    const rawMin = (relY / HOUR_H) * 60 + START_HOUR * 60
+    const snapped = Math.round(rawMin / SNAP_MIN) * SNAP_MIN
+    const clamped = Math.max(START_HOUR * 60, Math.min((END_HOUR - 1) * 60, snapped))
+    const time   = minToTime(clamped).substring(0, 5) // "HH:MM"
+
+    setNewSlot({ date: ds, time })
   }
 
   // ── Drag & Drop ─────────────────────────────────────────────────────────────
@@ -196,9 +220,9 @@ export function WeekCalendar({ dentistFilter = "todos" }: WeekCalendarProps) {
     const col = colRefs.current[ds]
     if (!col) return
 
-    const rect   = col.getBoundingClientRect()
-    const relY   = e.clientY - rect.top
-    const rawMin = (relY / HOUR_H) * 60 + START_HOUR * 60
+    const rect    = col.getBoundingClientRect()
+    const relY    = e.clientY - rect.top
+    const rawMin  = (relY / HOUR_H) * 60 + START_HOUR * 60
     const snapped = Math.round(rawMin / SNAP_MIN) * SNAP_MIN
     const clamped = Math.max(START_HOUR * 60, Math.min((END_HOUR - 1) * 60, snapped))
     const newTime = minToTime(clamped)
@@ -214,6 +238,27 @@ export function WeekCalendar({ dentistFilter = "todos" }: WeekCalendarProps) {
     } catch {
       toast({ title: "Error al reprogramar cita", variant: "destructive" })
     }
+  }
+
+  // ── Sheet callbacks ─────────────────────────────────────────────────────────
+
+  // A new appointment was created → reload to get full data with joins
+  const handleCreated = () => {
+    setReloadKey(k => k + 1)
+  }
+
+  // Status/data changed inline → update in local state
+  const handleUpdated = (updated: any) => {
+    setAppointments(prev =>
+      prev.map(a => a.id === updated.id ? { ...a, ...updated } : a)
+    )
+  }
+
+  // Appointment was cancelled → mark as cancelled in local state
+  const handleCancelled = (id: string) => {
+    setAppointments(prev =>
+      prev.map(a => a.id === id ? { ...a, status: "cancelada" } : a)
+    )
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -237,187 +282,213 @@ export function WeekCalendar({ dentistFilter = "todos" }: WeekCalendarProps) {
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 gap-3">
+    <>
+      <div className="flex flex-col flex-1 min-h-0 gap-3">
 
-      {/* ── Toolbar ── */}
-      <div className="flex items-center gap-2 flex-wrap shrink-0">
-        <Button variant="outline" size="sm" onClick={goToday}>Hoy</Button>
-        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shift(-1)}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shift(1)}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+        {/* ── Toolbar ── */}
+        <div className="flex items-center gap-2 flex-wrap shrink-0">
+          <Button variant="outline" size="sm" onClick={goToday}>Hoy</Button>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shift(-1)}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => shift(1)}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
 
-        <span className="text-sm font-semibold flex-1 truncate">{rangeLabel()}</span>
+          <span className="text-sm font-semibold flex-1 truncate">{rangeLabel()}</span>
 
-        {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
 
-        {/* View toggle */}
-        <div className="flex rounded-lg border bg-muted p-0.5 text-sm shrink-0">
-          <button
-            onClick={() => setView("week")}
-            className={cn(
-              "rounded-md px-3 py-1 font-medium transition-all",
-              view === "week"
-                ? "bg-background shadow-sm text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >Semana</button>
-          <button
-            onClick={() => setView("day")}
-            className={cn(
-              "rounded-md px-3 py-1 font-medium transition-all",
-              view === "day"
-                ? "bg-background shadow-sm text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >Día</button>
+          {/* View toggle */}
+          <div className="flex rounded-lg border bg-muted p-0.5 text-sm shrink-0">
+            <button
+              onClick={() => setView("week")}
+              className={cn(
+                "rounded-md px-3 py-1 font-medium transition-all",
+                view === "week"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >Semana</button>
+            <button
+              onClick={() => setView("day")}
+              className={cn(
+                "rounded-md px-3 py-1 font-medium transition-all",
+                view === "day"
+                  ? "bg-background shadow-sm text-foreground"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >Día</button>
+          </div>
         </div>
-      </div>
 
-      {/* ── Grid ── */}
-      <div className="flex-1 min-h-[400px] overflow-auto rounded-xl border bg-card">
+        {/* ── Grid ── */}
+        <div className="flex-1 min-h-[400px] overflow-auto rounded-xl border bg-card">
 
-        {/* Sticky day-column headers */}
-        <div className="sticky top-0 z-20 flex bg-card border-b shadow-sm">
-          <div className="w-14 shrink-0" /> {/* spacer for time labels */}
-          {days.map(day => {
-            const ds      = isoDate(day)
-            const isToday = ds === todayStr
-            return (
-              <div
-                key={ds}
-                onClick={() => { setSelectedDay(day); setView("day") }}
-                className={cn(
-                  "flex-1 min-w-0 py-2 text-center border-l first:border-l-0",
-                  "cursor-pointer transition-colors hover:bg-muted/50",
-                  isToday && "bg-primary/5"
-                )}
-              >
-                <p className={cn(
-                  "text-[11px] uppercase tracking-wide font-medium",
-                  isToday ? "text-primary" : "text-muted-foreground"
-                )}>
-                  {DAYS_SHORT[day.getDay()]}
-                </p>
-                <div className={cn(
-                  "mx-auto mt-0.5 flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold",
-                  isToday
-                    ? "bg-primary text-primary-foreground"
-                    : "text-foreground hover:bg-muted"
-                )}>
-                  {day.getDate()}
+          {/* Sticky day-column headers */}
+          <div className="sticky top-0 z-20 flex bg-card border-b shadow-sm">
+            <div className="w-14 shrink-0" />
+            {days.map(day => {
+              const ds      = isoDate(day)
+              const isToday = ds === todayStr
+              return (
+                <div
+                  key={ds}
+                  onClick={() => { setSelectedDay(day); setView("day") }}
+                  className={cn(
+                    "flex-1 min-w-0 py-2 text-center border-l first:border-l-0",
+                    "cursor-pointer transition-colors hover:bg-muted/50",
+                    isToday && "bg-primary/5"
+                  )}
+                >
+                  <p className={cn(
+                    "text-[11px] uppercase tracking-wide font-medium",
+                    isToday ? "text-primary" : "text-muted-foreground"
+                  )}>
+                    {DAYS_SHORT[day.getDay()]}
+                  </p>
+                  <div className={cn(
+                    "mx-auto mt-0.5 flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold",
+                    isToday
+                      ? "bg-primary text-primary-foreground"
+                      : "text-foreground hover:bg-muted"
+                  )}>
+                    {day.getDate()}
+                  </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Time grid body */}
-        <div className="flex">
-
-          {/* Hour labels */}
-          <div className="w-14 shrink-0 select-none">
-            {hours.map(h => (
-              <div key={h} style={{ height: HOUR_H }} className="relative">
-                <span className="absolute -top-2.5 right-2 text-[11px] text-muted-foreground">
-                  {String(h).padStart(2, "0")}:00
-                </span>
-              </div>
-            ))}
-            {/* bottom padding so last hour label is visible */}
-            <div style={{ height: 20 }} />
+              )
+            })}
           </div>
 
-          {/* Day columns */}
-          {days.map(day => {
-            const ds      = isoDate(day)
-            const isToday = ds === todayStr
-            const items   = layoutDay(appointments.filter(a => a.date === ds))
+          {/* Time grid body */}
+          <div className="flex">
 
-            return (
-              <div
-                key={ds}
-                ref={el => { colRefs.current[ds] = el }}
-                style={{ height: HOUR_H * (END_HOUR - START_HOUR) }}
-                className={cn("flex-1 min-w-0 relative border-l", isToday && "bg-primary/[0.03]")}
-                onDragOver={onDragOver}
-                onDrop={e => onDrop(e, day)}
-              >
-                {/* Hour lines */}
-                {hours.map(h => (
-                  <div
-                    key={h}
-                    style={{ top: (h - START_HOUR) * HOUR_H }}
-                    className="absolute inset-x-0 border-t border-border/40 pointer-events-none"
-                  />
-                ))}
-                {/* Half-hour dashed lines */}
-                {hours.map(h => (
-                  <div
-                    key={`${h}h`}
-                    style={{ top: (h - START_HOUR) * HOUR_H + HOUR_H / 2 }}
-                    className="absolute inset-x-0 border-t border-border/20 border-dashed pointer-events-none"
-                  />
-                ))}
+            {/* Hour labels */}
+            <div className="w-14 shrink-0 select-none">
+              {hours.map(h => (
+                <div key={h} style={{ height: HOUR_H }} className="relative">
+                  <span className="absolute -top-2.5 right-2 text-[11px] text-muted-foreground">
+                    {String(h).padStart(2, "0")}:00
+                  </span>
+                </div>
+              ))}
+              <div style={{ height: 20 }} />
+            </div>
 
-                {/* Current time indicator */}
-                {isToday && showNow && (
-                  <div
-                    style={{ top: nowTop }}
-                    className="absolute inset-x-0 z-10 flex items-center pointer-events-none"
-                  >
-                    <span className="h-2.5 w-2.5 rounded-full bg-red-500 -ml-1.5 shrink-0 ring-2 ring-background" />
-                    <span className="flex-1 border-t-2 border-red-500" />
-                  </div>
-                )}
+            {/* Day columns */}
+            {days.map(day => {
+              const ds      = isoDate(day)
+              const isToday = ds === todayStr
+              const items   = layoutDay(appointments.filter(a => a.date === ds))
 
-                {/* Appointment blocks */}
-                {items.map(({ appt, col, total }) => {
-                  const startMin = timeToMin(appt.time)
-                  const topPx    = ((startMin - START_HOUR * 60) / 60) * HOUR_H
-                  const heightPx = Math.max(22, ((appt.duration || 30) / 60) * HOUR_H)
-                  const colW     = 100 / total
-                  const colorCls = STATUS_CLASSES[appt.status] ?? DEFAULT_CLASS
-
-                  return (
+              return (
+                <div
+                  key={ds}
+                  ref={el => { colRefs.current[ds] = el }}
+                  style={{ height: HOUR_H * (END_HOUR - START_HOUR) }}
+                  className={cn(
+                    "flex-1 min-w-0 relative border-l cursor-pointer",
+                    isToday && "bg-primary/[0.03]"
+                  )}
+                  onClick={e => handleColumnClick(e, day)}
+                  onDragOver={onDragOver}
+                  onDrop={e => onDrop(e, day)}
+                >
+                  {/* Hour lines */}
+                  {hours.map(h => (
                     <div
-                      key={appt.id}
-                      draggable
-                      onDragStart={e => onDragStart(e, appt)}
-                      onDragEnd={onDragEnd}
-                      onClick={() => router.push(`/citas/${appt.id}`)}
-                      style={{
-                        top:    Math.max(0, topPx),
-                        height: heightPx,
-                        left:   `calc(${col * colW}% + 2px)`,
-                        width:  `calc(${colW}% - 4px)`,
-                      }}
-                      className={cn(
-                        "absolute rounded border-l-[3px] px-1.5 py-0.5 text-[11px] overflow-hidden",
-                        "cursor-pointer hover:brightness-95 active:cursor-grabbing transition-[filter]",
-                        "select-none",
-                        colorCls
-                      )}
-                      title={`${appt.time.substring(0, 5)} · ${appt.patients?.first_name ?? ""} ${appt.patients?.last_name ?? ""}`.trim()}
+                      key={h}
+                      style={{ top: (h - START_HOUR) * HOUR_H }}
+                      className="absolute inset-x-0 border-t border-border/40 pointer-events-none"
+                    />
+                  ))}
+                  {/* Half-hour dashed lines */}
+                  {hours.map(h => (
+                    <div
+                      key={`${h}h`}
+                      style={{ top: (h - START_HOUR) * HOUR_H + HOUR_H / 2 }}
+                      className="absolute inset-x-0 border-t border-border/20 border-dashed pointer-events-none"
+                    />
+                  ))}
+
+                  {/* Empty slot hint on hover */}
+                  <div className="absolute inset-0 hover:bg-primary/[0.025] transition-colors pointer-events-none rounded-none" />
+
+                  {/* Current time indicator */}
+                  {isToday && showNow && (
+                    <div
+                      style={{ top: nowTop }}
+                      className="absolute inset-x-0 z-10 flex items-center pointer-events-none"
                     >
-                      <p className="font-semibold leading-tight truncate">
-                        {appt.patients?.first_name} {appt.patients?.last_name}
-                      </p>
-                      {heightPx > 32 && (
-                        <p className="opacity-75 truncate leading-tight mt-px">
-                          {appt.time.substring(0, 5)} · {appt.treatments?.name ?? "Consulta"}
-                        </p>
-                      )}
+                      <span className="h-2.5 w-2.5 rounded-full bg-red-500 -ml-1.5 shrink-0 ring-2 ring-background" />
+                      <span className="flex-1 border-t-2 border-red-500" />
                     </div>
-                  )
-                })}
-              </div>
-            )
-          })}
+                  )}
+
+                  {/* Appointment blocks */}
+                  {items.map(({ appt, col, total }) => {
+                    const startMin = timeToMin(appt.time)
+                    const topPx    = ((startMin - START_HOUR * 60) / 60) * HOUR_H
+                    const heightPx = Math.max(22, ((appt.duration || 30) / 60) * HOUR_H)
+                    const colW     = 100 / total
+                    const colorCls = STATUS_CLASSES[appt.status] ?? DEFAULT_CLASS
+
+                    return (
+                      <div
+                        key={appt.id}
+                        data-appt          // used by column click handler to ignore clicks on appointments
+                        draggable
+                        onDragStart={e => onDragStart(e, appt)}
+                        onDragEnd={onDragEnd}
+                        onClick={e => { e.stopPropagation(); setDetailId(appt.id) }}
+                        style={{
+                          top:    Math.max(0, topPx),
+                          height: heightPx,
+                          left:   `calc(${col * colW}% + 2px)`,
+                          width:  `calc(${colW}% - 4px)`,
+                        }}
+                        className={cn(
+                          "absolute rounded border-l-[3px] px-1.5 py-0.5 text-[11px] overflow-hidden",
+                          "cursor-pointer hover:brightness-95 active:cursor-grabbing transition-[filter]",
+                          "select-none z-[5]",
+                          colorCls
+                        )}
+                        title={`${appt.time.substring(0, 5)} · ${appt.patients?.first_name ?? ""} ${appt.patients?.last_name ?? ""}`.trim()}
+                      >
+                        <p className="font-semibold leading-tight truncate">
+                          {appt.patients?.first_name} {appt.patients?.last_name}
+                        </p>
+                        {heightPx > 32 && (
+                          <p className="opacity-75 truncate leading-tight mt-px">
+                            {appt.time.substring(0, 5)} · {appt.treatments?.name ?? "Consulta"}
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* ── Sheets ── */}
+      <NewAppointmentSheet
+        open={!!newSlot}
+        onOpenChange={v => { if (!v) setNewSlot(null) }}
+        date={newSlot?.date ?? ""}
+        time={newSlot?.time ?? ""}
+        onCreated={handleCreated}
+      />
+
+      <AppointmentDetailSheet
+        open={!!detailId}
+        onOpenChange={v => { if (!v) setDetailId(null) }}
+        appointmentId={detailId}
+        onUpdated={handleUpdated}
+        onCancelled={handleCancelled}
+      />
+    </>
   )
 }
