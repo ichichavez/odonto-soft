@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft, Baby, User } from "lucide-react"
@@ -12,14 +12,15 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { patientService } from "@/services/patients"
 import { useClinic } from "@/context/clinic-context"
 import { useAuth } from "@/context/auth-context"
 import { useBranch } from "@/context/branch-context"
-import { FormSection } from "@/components/dental-record/form-section"
-import { CheckboxGroup } from "@/components/dental-record/checkbox-group"
+import {
+  DentalRecordFormTabs,
+  type DentalRecordFormHandle,
+} from "@/components/dental-record/dental-record-form-tabs"
 
 type PatientType = "adulto" | "nino"
 
@@ -34,12 +35,10 @@ const emptyPatient = {
   gender: "",
   address: "",
   patient_type: "adulto" as PatientType,
-  // Adulto
   marital_status: "",
   profession: "",
   work_address: "",
   work_phone: "",
-  // Niño
   guardian_name: "",
   guardian_identity_number: "",
   guardian_relationship: "",
@@ -48,32 +47,21 @@ const emptyPatient = {
 }
 
 export default function NuevoPacientePage() {
-  const { toast } = useToast()
-  const router = useRouter()
-  const { clinic } = useClinic()
-  const { user } = useAuth()
+  const { toast }       = useToast()
+  const router          = useRouter()
+  const { clinic }      = useClinic()
+  const { user }        = useAuth()
   const { activeBranch } = useBranch()
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [patientData, setPatientData] = useState(emptyPatient)
 
-  // ── Antecedentes médicos ──
-  const [allergyChecks, setAllergyChecks] = useState<Record<string, boolean | string>>({
-    penicilina: false, amoxicilina: false, aines: false,
-    anestesia_local: false, latex: false, yodo: false,
-    otros: false, otros_detail: "",
-  })
-  const [diseaseChecks, setDiseaseChecks] = useState<Record<string, boolean | string>>({
-    diabetes: false, hipertension: false, cardiaca: false, asma: false,
-    epilepsia: false, hepatitis: false, vih_sida: false, coagulacion: false,
-    anemia: false, hemofilia: false, tuberculosis: false,
-    otros: false, otros_detail: "",
-  })
-  const [medications, setMedications] = useState("")
-  const [medObservations, setMedObservations] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [patientData,  setPatientData]  = useState(emptyPatient)
+
+  // Ref al formulario de ficha odontológica
+  const dentalFormRef = useRef<DentalRecordFormHandle>(null)
 
   const patientType = patientData.patient_type
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target
     setPatientData((prev) => ({ ...prev, [id]: value }))
   }
@@ -91,36 +79,6 @@ export default function NuevoPacientePage() {
     if (!patientData.first_name || !patientData.last_name) {
       toast({ title: "Error", description: "El nombre y apellido son requeridos.", variant: "destructive" })
       return
-    }
-    // Serializar checkboxes de antecedentes médicos a texto
-    const ALLERGY_LABELS: Record<string, string> = {
-      penicilina: "Penicilina", amoxicilina: "Amoxicilina", aines: "AINEs/Ibuprofeno",
-      anestesia_local: "Anestesia local", latex: "Látex", yodo: "Yodo",
-    }
-    const DISEASE_LABELS: Record<string, string> = {
-      diabetes: "Diabetes", hipertension: "Hipertensión arterial",
-      cardiaca: "Enf. Cardíacas", asma: "Asma", epilepsia: "Epilepsia",
-      hepatitis: "Hepatitis", vih_sida: "VIH/SIDA", coagulacion: "Probl. de coagulación",
-      anemia: "Anemia", hemofilia: "Hemofilia", tuberculosis: "Tuberculosis",
-    }
-
-    const allergiesArr = Object.entries(allergyChecks)
-      .filter(([k, v]) => v === true && k !== "otros")
-      .map(([k]) => ALLERGY_LABELS[k])
-    if (allergyChecks.otros && (allergyChecks.otros_detail as string).trim())
-      allergiesArr.push((allergyChecks.otros_detail as string).trim())
-
-    const diseasesArr = Object.entries(diseaseChecks)
-      .filter(([k, v]) => v === true && k !== "otros")
-      .map(([k]) => DISEASE_LABELS[k])
-    if (diseaseChecks.otros && (diseaseChecks.otros_detail as string).trim())
-      diseasesArr.push((diseaseChecks.otros_detail as string).trim())
-
-    const medicalSanitized = {
-      allergies:        allergiesArr.length ? allergiesArr.join(", ") : null,
-      medications:      medications.trim() || null,
-      chronic_diseases: [...diseasesArr, medObservations.trim() || null]
-        .filter(Boolean).join("; ") || null,
     }
 
     setIsSubmitting(true)
@@ -144,18 +102,43 @@ export default function NuevoPacientePage() {
         }
       }
     } catch {
-      // Non-blocking: proceed if check fails
+      // Non-blocking
     }
+
     try {
-      // Convertir strings vacíos a null (evita errores de tipo date, unique constraint, etc.)
       const sanitized = Object.fromEntries(
         Object.entries(patientData).map(([k, v]) => [k, typeof v === "string" && v.trim() === "" ? null : v])
       ) as typeof patientData
 
+      // Build dental record from the ficha form
+      const fd = dentalFormRef.current?.getData()
+      const dentalRecord = fd ? {
+        patient_type:     fd.patientType,
+        consultation_date: fd.consultationDate,
+        reason_of_visit:  fd.reasonOfVisit,
+        reason_other:     fd.reasonOther   || null,
+        referred_by:      fd.referredBy    || null,
+        profession:       fd.patientType === "adulto" ? fd.profession   || null : null,
+        civil_status:     fd.patientType === "adulto" ? fd.civilStatus  || null : null,
+        work_address:     fd.patientType === "adulto" ? fd.workAddress  || null : null,
+        weight:           fd.patientType === "nino" && fd.weight  ? parseFloat(fd.weight)  : null,
+        height:           fd.patientType === "nino" && fd.height ? parseFloat(fd.height) : null,
+        guardian_name:    fd.patientType === "nino" ? fd.guardianName  || null : null,
+        guardian_phone:   fd.patientType === "nino" ? fd.guardianPhone || null : null,
+        feeding_history:  fd.patientType === "nino" ? fd.feedingHistory : null,
+        diet_record:      fd.patientType === "nino" ? fd.dietRecord : null,
+        extra_oral_exam:  fd.extraOral,
+        intra_oral_exam:  fd.intraOral,
+        habits:           fd.habits,
+        medical_history:  fd.medicalHistory,
+        dental_history:   fd.patientType === "adulto" ? fd.dentalHistory : null,
+        treatments_done:  fd.treatmentsDone,
+      } : {}
+
       await patientService.create(
         { ...sanitized, clinic_id: clinic?.id ?? null },
-        medicalSanitized,
         {},
+        dentalRecord as any,
         activeBranch?.id
       )
       toast({ title: "Paciente registrado", description: "El paciente ha sido registrado exitosamente." })
@@ -184,9 +167,10 @@ export default function NuevoPacientePage() {
         <Tabs defaultValue="informacion">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="informacion">Información Personal</TabsTrigger>
-            <TabsTrigger value="medico">Antecedentes Médicos</TabsTrigger>
+            <TabsTrigger value="ficha">Antecedentes / Ficha Odontológica</TabsTrigger>
           </TabsList>
 
+          {/* ── Información Personal ── */}
           <TabsContent value="informacion">
             <Card>
               <CardHeader>
@@ -194,33 +178,20 @@ export default function NuevoPacientePage() {
                 <CardDescription>Ingrese los datos del paciente.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-
-                {/* Toggle adulto / niño */}
+                {/* Tipo de paciente */}
                 <div className="space-y-2">
                   <Label>Tipo de paciente</Label>
                   <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={patientType === "adulto" ? "default" : "outline"}
-                      className="flex-1 gap-2"
-                      onClick={() => handleTypeChange("adulto")}
-                    >
-                      <User className="h-4 w-4" />
-                      Adulto
+                    <Button type="button" variant={patientType === "adulto" ? "default" : "outline"} className="flex-1 gap-2" onClick={() => handleTypeChange("adulto")}>
+                      <User className="h-4 w-4" />Adulto
                     </Button>
-                    <Button
-                      type="button"
-                      variant={patientType === "nino" ? "default" : "outline"}
-                      className="flex-1 gap-2"
-                      onClick={() => handleTypeChange("nino")}
-                    >
-                      <Baby className="h-4 w-4" />
-                      Niño / Niña
+                    <Button type="button" variant={patientType === "nino" ? "default" : "outline"} className="flex-1 gap-2" onClick={() => handleTypeChange("nino")}>
+                      <Baby className="h-4 w-4" />Niño / Niña
                     </Button>
                   </div>
                 </div>
 
-                {/* Datos básicos — comunes */}
+                {/* Datos básicos */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="first_name">Nombre *</Label>
@@ -244,9 +215,7 @@ export default function NuevoPacientePage() {
                   <div className="space-y-2">
                     <Label htmlFor="gender">Género</Label>
                     <Select value={patientData.gender} onValueChange={(v) => handleSelect("gender", v)}>
-                      <SelectTrigger id="gender">
-                        <SelectValue placeholder="Seleccionar" />
-                      </SelectTrigger>
+                      <SelectTrigger id="gender"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="masculino">Masculino</SelectItem>
                         <SelectItem value="femenino">Femenino</SelectItem>
@@ -261,11 +230,10 @@ export default function NuevoPacientePage() {
                   <Input id="address" placeholder="Dirección completa" value={patientData.address} onChange={handleChange} />
                 </div>
 
-                {/* ── Campos para ADULTO ── */}
+                {/* Adulto */}
                 {patientType === "adulto" && (
                   <div className="space-y-4 pt-4 border-t">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Datos del paciente adulto</p>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="phone">Teléfono</Label>
@@ -276,7 +244,6 @@ export default function NuevoPacientePage() {
                         <Input id="secondary_phone" placeholder="Teléfono celular" value={patientData.secondary_phone} onChange={handleChange} />
                       </div>
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="email">Correo Electrónico</Label>
@@ -285,9 +252,7 @@ export default function NuevoPacientePage() {
                       <div className="space-y-2">
                         <Label htmlFor="marital_status">Estado Civil</Label>
                         <Select value={patientData.marital_status} onValueChange={(v) => handleSelect("marital_status", v)}>
-                          <SelectTrigger id="marital_status">
-                            <SelectValue placeholder="Seleccionar" />
-                          </SelectTrigger>
+                          <SelectTrigger id="marital_status"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="soltero">Soltero/a</SelectItem>
                             <SelectItem value="casado">Casado/a</SelectItem>
@@ -298,7 +263,6 @@ export default function NuevoPacientePage() {
                         </Select>
                       </div>
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="profession">Profesión / Ocupación</Label>
@@ -309,7 +273,6 @@ export default function NuevoPacientePage() {
                         <Input id="work_phone" placeholder="Teléfono del trabajo" value={patientData.work_phone} onChange={handleChange} />
                       </div>
                     </div>
-
                     <div className="space-y-2">
                       <Label htmlFor="work_address">Dirección Laboral</Label>
                       <Input id="work_address" placeholder="Dirección del lugar de trabajo" value={patientData.work_address} onChange={handleChange} />
@@ -317,11 +280,10 @@ export default function NuevoPacientePage() {
                   </div>
                 )}
 
-                {/* ── Campos para NIÑO ── */}
+                {/* Niño */}
                 {patientType === "nino" && (
                   <div className="space-y-4 pt-4 border-t">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Datos del encargado / tutor</p>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="guardian_name">Nombre del Encargado</Label>
@@ -332,14 +294,11 @@ export default function NuevoPacientePage() {
                         <Input id="guardian_identity_number" placeholder="C.I." value={patientData.guardian_identity_number} onChange={handleChange} />
                       </div>
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="guardian_relationship">Relación con el paciente</Label>
                         <Select value={patientData.guardian_relationship} onValueChange={(v) => handleSelect("guardian_relationship", v)}>
-                          <SelectTrigger id="guardian_relationship">
-                            <SelectValue placeholder="Seleccionar" />
-                          </SelectTrigger>
+                          <SelectTrigger id="guardian_relationship"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="madre">Madre</SelectItem>
                             <SelectItem value="padre">Padre</SelectItem>
@@ -358,7 +317,6 @@ export default function NuevoPacientePage() {
                         <Input id="guardian_secondary_phone" placeholder="Celular" value={patientData.guardian_secondary_phone} onChange={handleChange} />
                       </div>
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="email">Correo del Encargado</Label>
@@ -375,63 +333,9 @@ export default function NuevoPacientePage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="medico" className="space-y-4 mt-2">
-            <FormSection title="Alergias">
-              <CheckboxGroup
-                items={[
-                  { key: "penicilina",     label: "Penicilina" },
-                  { key: "amoxicilina",    label: "Amoxicilina" },
-                  { key: "aines",          label: "AINEs / Ibuprofeno" },
-                  { key: "anestesia_local",label: "Anestesia local" },
-                  { key: "latex",          label: "Látex" },
-                  { key: "yodo",           label: "Yodo" },
-                  { key: "otros",          label: "Otras", withInput: true, inputPlaceholder: "Especificar..." },
-                ]}
-                values={allergyChecks}
-                onChange={(k, v) => setAllergyChecks(prev => ({ ...prev, [k]: v }))}
-                columns={2}
-              />
-            </FormSection>
-
-            <FormSection title="Enfermedades / Condiciones">
-              <CheckboxGroup
-                items={[
-                  { key: "diabetes",    label: "Diabetes" },
-                  { key: "hipertension",label: "Hipertensión arterial" },
-                  { key: "cardiaca",    label: "Enf. Cardíacas" },
-                  { key: "asma",        label: "Asma" },
-                  { key: "epilepsia",   label: "Epilepsia" },
-                  { key: "hepatitis",   label: "Hepatitis" },
-                  { key: "vih_sida",    label: "VIH / SIDA" },
-                  { key: "coagulacion", label: "Probl. de coagulación" },
-                  { key: "anemia",      label: "Anemia" },
-                  { key: "hemofilia",   label: "Hemofilia" },
-                  { key: "tuberculosis",label: "Tuberculosis" },
-                  { key: "otros",       label: "Otras", withInput: true, inputPlaceholder: "Especificar..." },
-                ]}
-                values={diseaseChecks}
-                onChange={(k, v) => setDiseaseChecks(prev => ({ ...prev, [k]: v }))}
-                columns={2}
-              />
-            </FormSection>
-
-            <FormSection title="Medicamentos actuales">
-              <Textarea
-                placeholder="Medicamentos que toma actualmente..."
-                value={medications}
-                onChange={(e) => setMedications(e.target.value)}
-                rows={3}
-              />
-            </FormSection>
-
-            <FormSection title="Observaciones">
-              <Textarea
-                placeholder="Observaciones adicionales, alergias a alimentos, condiciones relevantes..."
-                value={medObservations}
-                onChange={(e) => setMedObservations(e.target.value)}
-                rows={3}
-              />
-            </FormSection>
+          {/* ── Antecedentes / Ficha Odontológica ── */}
+          <TabsContent value="ficha" className="mt-2">
+            <DentalRecordFormTabs ref={dentalFormRef} />
           </TabsContent>
         </Tabs>
 
