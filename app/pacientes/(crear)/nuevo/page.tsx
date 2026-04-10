@@ -18,6 +18,8 @@ import { patientService } from "@/services/patients"
 import { useClinic } from "@/context/clinic-context"
 import { useAuth } from "@/context/auth-context"
 import { useBranch } from "@/context/branch-context"
+import { FormSection } from "@/components/dental-record/form-section"
+import { CheckboxGroup } from "@/components/dental-record/checkbox-group"
 
 type PatientType = "adulto" | "nino"
 
@@ -53,11 +55,21 @@ export default function NuevoPacientePage() {
   const { activeBranch } = useBranch()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [patientData, setPatientData] = useState(emptyPatient)
-  const [medicalData, setMedicalData] = useState({
-    allergies: "",
-    medications: "",
-    chronic_diseases: "",
+
+  // ── Antecedentes médicos ──
+  const [allergyChecks, setAllergyChecks] = useState<Record<string, boolean | string>>({
+    penicilina: false, amoxicilina: false, aines: false,
+    anestesia_local: false, latex: false, yodo: false,
+    otros: false, otros_detail: "",
   })
+  const [diseaseChecks, setDiseaseChecks] = useState<Record<string, boolean | string>>({
+    diabetes: false, hipertension: false, cardiaca: false, asma: false,
+    epilepsia: false, hepatitis: false, vih_sida: false, coagulacion: false,
+    anemia: false, hemofilia: false, tuberculosis: false,
+    otros: false, otros_detail: "",
+  })
+  const [medications, setMedications] = useState("")
+  const [medObservations, setMedObservations] = useState("")
 
   const patientType = patientData.patient_type
 
@@ -74,17 +86,43 @@ export default function NuevoPacientePage() {
     setPatientData((prev) => ({ ...prev, patient_type: type }))
   }
 
-  const handleMedicalChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const key = e.target.id.replace("med-", "") as keyof typeof medicalData
-    setMedicalData((prev) => ({ ...prev, [key]: e.target.value }))
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!patientData.first_name || !patientData.last_name) {
       toast({ title: "Error", description: "El nombre y apellido son requeridos.", variant: "destructive" })
       return
     }
+    // Serializar checkboxes de antecedentes médicos a texto
+    const ALLERGY_LABELS: Record<string, string> = {
+      penicilina: "Penicilina", amoxicilina: "Amoxicilina", aines: "AINEs/Ibuprofeno",
+      anestesia_local: "Anestesia local", latex: "Látex", yodo: "Yodo",
+    }
+    const DISEASE_LABELS: Record<string, string> = {
+      diabetes: "Diabetes", hipertension: "Hipertensión arterial",
+      cardiaca: "Enf. Cardíacas", asma: "Asma", epilepsia: "Epilepsia",
+      hepatitis: "Hepatitis", vih_sida: "VIH/SIDA", coagulacion: "Probl. de coagulación",
+      anemia: "Anemia", hemofilia: "Hemofilia", tuberculosis: "Tuberculosis",
+    }
+
+    const allergiesArr = Object.entries(allergyChecks)
+      .filter(([k, v]) => v === true && k !== "otros")
+      .map(([k]) => ALLERGY_LABELS[k])
+    if (allergyChecks.otros && (allergyChecks.otros_detail as string).trim())
+      allergiesArr.push((allergyChecks.otros_detail as string).trim())
+
+    const diseasesArr = Object.entries(diseaseChecks)
+      .filter(([k, v]) => v === true && k !== "otros")
+      .map(([k]) => DISEASE_LABELS[k])
+    if (diseaseChecks.otros && (diseaseChecks.otros_detail as string).trim())
+      diseasesArr.push((diseaseChecks.otros_detail as string).trim())
+
+    const medicalSanitized = {
+      allergies:        allergiesArr.length ? allergiesArr.join(", ") : null,
+      medications:      medications.trim() || null,
+      chronic_diseases: [...diseasesArr, medObservations.trim() || null]
+        .filter(Boolean).join("; ") || null,
+    }
+
     setIsSubmitting(true)
 
     // Pre-check plan limit for patients
@@ -113,10 +151,6 @@ export default function NuevoPacientePage() {
       const sanitized = Object.fromEntries(
         Object.entries(patientData).map(([k, v]) => [k, typeof v === "string" && v.trim() === "" ? null : v])
       ) as typeof patientData
-
-      const medicalSanitized = Object.fromEntries(
-        Object.entries(medicalData).map(([k, v]) => [k, v.trim() === "" ? null : v])
-      ) as typeof medicalData
 
       await patientService.create(
         { ...sanitized, clinic_id: clinic?.id ?? null },
@@ -341,42 +375,63 @@ export default function NuevoPacientePage() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="medico">
-            <Card>
-              <CardHeader>
-                <CardTitle>Antecedentes Médicos</CardTitle>
-                <CardDescription>Información médica relevante del paciente.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="med-allergies">Alergias</Label>
-                  <Textarea
-                    id="med-allergies"
-                    placeholder="Alergias conocidas (medicamentos, materiales, alimentos, etc.)"
-                    value={medicalData.allergies}
-                    onChange={handleMedicalChange}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="med-medications">Medicamentos Actuales</Label>
-                  <Textarea
-                    id="med-medications"
-                    placeholder="Medicamentos que toma actualmente"
-                    value={medicalData.medications}
-                    onChange={handleMedicalChange}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="med-chronic_diseases">Enfermedades / Condiciones Médicas</Label>
-                  <Textarea
-                    id="med-chronic_diseases"
-                    placeholder="Enfermedades crónicas o condiciones relevantes"
-                    value={medicalData.chronic_diseases}
-                    onChange={handleMedicalChange}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="medico" className="space-y-4 mt-2">
+            <FormSection title="Alergias">
+              <CheckboxGroup
+                items={[
+                  { key: "penicilina",     label: "Penicilina" },
+                  { key: "amoxicilina",    label: "Amoxicilina" },
+                  { key: "aines",          label: "AINEs / Ibuprofeno" },
+                  { key: "anestesia_local",label: "Anestesia local" },
+                  { key: "latex",          label: "Látex" },
+                  { key: "yodo",           label: "Yodo" },
+                  { key: "otros",          label: "Otras", withInput: true, inputPlaceholder: "Especificar..." },
+                ]}
+                values={allergyChecks}
+                onChange={(k, v) => setAllergyChecks(prev => ({ ...prev, [k]: v }))}
+                columns={2}
+              />
+            </FormSection>
+
+            <FormSection title="Enfermedades / Condiciones">
+              <CheckboxGroup
+                items={[
+                  { key: "diabetes",    label: "Diabetes" },
+                  { key: "hipertension",label: "Hipertensión arterial" },
+                  { key: "cardiaca",    label: "Enf. Cardíacas" },
+                  { key: "asma",        label: "Asma" },
+                  { key: "epilepsia",   label: "Epilepsia" },
+                  { key: "hepatitis",   label: "Hepatitis" },
+                  { key: "vih_sida",    label: "VIH / SIDA" },
+                  { key: "coagulacion", label: "Probl. de coagulación" },
+                  { key: "anemia",      label: "Anemia" },
+                  { key: "hemofilia",   label: "Hemofilia" },
+                  { key: "tuberculosis",label: "Tuberculosis" },
+                  { key: "otros",       label: "Otras", withInput: true, inputPlaceholder: "Especificar..." },
+                ]}
+                values={diseaseChecks}
+                onChange={(k, v) => setDiseaseChecks(prev => ({ ...prev, [k]: v }))}
+                columns={2}
+              />
+            </FormSection>
+
+            <FormSection title="Medicamentos actuales">
+              <Textarea
+                placeholder="Medicamentos que toma actualmente..."
+                value={medications}
+                onChange={(e) => setMedications(e.target.value)}
+                rows={3}
+              />
+            </FormSection>
+
+            <FormSection title="Observaciones">
+              <Textarea
+                placeholder="Observaciones adicionales, alergias a alimentos, condiciones relevantes..."
+                value={medObservations}
+                onChange={(e) => setMedObservations(e.target.value)}
+                rows={3}
+              />
+            </FormSection>
           </TabsContent>
         </Tabs>
 
