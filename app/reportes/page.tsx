@@ -162,7 +162,7 @@ export default function ReportesPage() {
     const cols = [
       { header: "Apellido",   key: "last_name" },
       { header: "Nombre",     key: "first_name" },
-      { header: "CI",         key: "ci" },
+      { header: "CI",         key: "identity_number" },
       { header: "Teléfono",   key: "phone" },
       { header: "Email",      key: "email" },
       { header: "Nacimiento", key: "birth_date" },
@@ -257,7 +257,7 @@ export default function ReportesPage() {
     const data = saldosPorPaciente.map(e => ({
       _last:    e.patient?.last_name  ?? "—",
       _first:   e.patient?.first_name ?? "—",
-      _ci:      e.patient?.ci         ?? "—",
+      _ci:      e.patient?.identity_number ?? "—",
       _phone:   e.patient?.phone      ?? "—",
       _cost:    fmt(e.totalCost),
       _payment: fmt(e.totalPayment),
@@ -372,7 +372,7 @@ export default function ReportesPage() {
                         <tr key={p.id} className="border-b hover:bg-muted/30">
                           <td className="py-2 px-2 font-medium">{p.last_name}</td>
                           <td className="py-2 px-2">{p.first_name}</td>
-                          <td className="py-2 px-2">{p.ci || "—"}</td>
+                          <td className="py-2 px-2">{p.identity_number || "—"}</td>
                           <td className="py-2 px-2">{p.phone || "—"}</td>
                           <td className="py-2 px-2">{p.email || "—"}</td>
                         </tr>
@@ -624,7 +624,7 @@ export default function ReportesPage() {
                             <td className="py-2 px-2 font-medium">
                               {e.patient ? `${e.patient.last_name}, ${e.patient.first_name}` : "—"}
                             </td>
-                            <td className="py-2 px-2 text-muted-foreground">{e.patient?.ci || "—"}</td>
+                            <td className="py-2 px-2 text-muted-foreground">{e.patient?.identity_number || "—"}</td>
                             <td className="py-2 px-2">
                               {waPhone ? (
                                 <a
