@@ -30,13 +30,12 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      const { error } = await signIn(email, password)
+      const { error, role } = await signIn(email, password)
       if (error) throw error
 
       toast({ title: "Inicio de sesión exitoso", description: "Bienvenido/a al sistema" })
       // Forzar recarga completa para que AuthContext reinicie con la sesión nueva.
-      // router.push no es suficiente cuando clearAllSupabaseData() resetea el singleton.
-      window.location.replace("/")
+      window.location.replace(role === "superadmin" ? "/superadmin" : "/")
     } catch (error: any) {
       toast({
         title: "Error de inicio de sesión",

@@ -18,7 +18,7 @@ type AuthContextType = {
   user: UserWithRole | null
   session: any | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<{ error: any | null }>
+  signIn: (email: string, password: string) => Promise<{ error: any | null; role: string | null }>
   signOut: () => Promise<void>
   isAuthenticated: boolean
   isSuperAdmin: boolean
@@ -168,20 +168,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (loading) return
     if (!user && !PUBLIC_ROUTES.includes(pathname ?? "")) {
       router.push("/login")
-      return
-    }
-    // Redirigir superadmin al panel correcto si aterriza en "/"
-    if (user?.role === "superadmin" && pathname === "/") {
-      router.replace("/superadmin")
     }
   }, [user, loading, pathname, router])
 
   const signIn = async (email: string, password: string) => {
     const supabase = createBrowserClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) return { error }
-    // El perfil se cargará vía onAuthStateChange
-    return { error: null }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) return { error, role: null }
+    // Leer rol del perfil para que el login pueda redirigir al destino correcto
+    let role: string | null = null
+    if (data.user) {
+      const { data: profile } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", data.user.id)
+        .single()
+      role = profile?.role ?? null
+    }
+    return { error: null, role }
   }
 
   const signOut = async () => {
