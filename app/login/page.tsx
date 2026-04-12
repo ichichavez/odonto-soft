@@ -34,7 +34,9 @@ export default function LoginPage() {
       if (error) throw error
 
       toast({ title: "Inicio de sesión exitoso", description: "Bienvenido/a al sistema" })
-      router.push("/")
+      // Forzar recarga completa para que AuthContext reinicie con la sesión nueva.
+      // router.push no es suficiente cuando clearAllSupabaseData() resetea el singleton.
+      window.location.replace("/")
     } catch (error: any) {
       toast({
         title: "Error de inicio de sesión",

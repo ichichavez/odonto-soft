@@ -165,8 +165,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Redirigir a login si no está autenticado (excluir rutas públicas)
   const PUBLIC_ROUTES = ["/login", "/precios", "/registro", "/recuperar-contrasena", "/nueva-contrasena"]
   useEffect(() => {
-    if (!loading && !user && !PUBLIC_ROUTES.includes(pathname ?? "")) {
+    if (loading) return
+    if (!user && !PUBLIC_ROUTES.includes(pathname ?? "")) {
       router.push("/login")
+      return
+    }
+    // Redirigir superadmin al panel correcto si aterriza en "/"
+    if (user?.role === "superadmin" && pathname === "/") {
+      router.replace("/superadmin")
     }
   }, [user, loading, pathname, router])
 
@@ -191,6 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const hasPermission = (requiredRoles: string[]) => {
     if (!user) return false
+    if (user.role === "superadmin") return true // superadmin tiene acceso total
     return requiredRoles.includes(user.role)
   }
 

@@ -8,7 +8,8 @@ const NO_SIDEBAR_ROUTES = ["/login", "/registro", "/precios", "/billing/success"
 
 export function Shell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const showSidebar = !NO_SIDEBAR_ROUTES.includes(pathname)
+  // El panel /superadmin tiene su propio layout y sidebar — no mostrar el de clínica
+  const showSidebar = !NO_SIDEBAR_ROUTES.includes(pathname) && !pathname?.startsWith("/superadmin")
 
   return (
     <div className="flex min-h-screen">
