@@ -84,11 +84,11 @@ export default function SucursalesPage() {
 
   // Redirect non-admins
   useEffect(() => {
-    if (user && user.role !== "admin") router.push("/")
+    if (user && user.role !== "admin" && user.role !== "superadmin") router.push("/")
   }, [user, router])
 
   useEffect(() => {
-    if (!user || user.role !== "admin") return
+    if (!user || (user.role !== "admin" && user.role !== "superadmin")) return
     const { from, to } = getMonthRange()
 
     const load = async () => {
@@ -166,7 +166,7 @@ export default function SucursalesPage() {
   const monthLabel = now.toLocaleDateString("es-ES", { month: "long", year: "numeric" })
   const currency = clinic?.currency ?? "PYG"
 
-  if (!user || user.role !== "admin") return null
+  if (!user || (user.role !== "admin" && user.role !== "superadmin")) return null
 
   return (
     <div className="flex flex-col p-6 space-y-6">

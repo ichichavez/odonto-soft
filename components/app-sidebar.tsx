@@ -124,7 +124,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         </ul>
 
         {/* Admin section */}
-        {user?.role === "admin" && (
+        {(user?.role === "admin" || user?.role === "superadmin") && (
           <>
             <div className="mt-4 mb-1 px-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/60">

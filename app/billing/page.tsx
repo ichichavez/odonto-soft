@@ -143,7 +143,7 @@ export default function BillingPage() {
     }
   }
 
-  if (!user || user.role !== "admin") return null
+  if (!user || (user.role !== "admin" && user.role !== "superadmin")) return null
 
   const trialEnd = subscription?.current_period_end
     ? new Date(subscription.current_period_end).toLocaleDateString("es-ES", {

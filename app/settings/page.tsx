@@ -299,7 +299,7 @@ export default function SettingsPage() {
     }
   }
 
-  if (user?.role !== "admin") {
+  if (user?.role !== "admin" && user?.role !== "superadmin") {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <p className="text-muted-foreground">No tienes permisos para ver esta página.</p>

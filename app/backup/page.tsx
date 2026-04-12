@@ -62,7 +62,7 @@ export default function BackupPage() {
   const [loading, setLoading] = useState(false)
   const [lastBackup, setLastBackup] = useState<{ at: string; counts: Record<string, number> } | null>(null)
 
-  if (user?.role !== "admin") {
+  if (user?.role !== "admin" && user?.role !== "superadmin") {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <p className="text-muted-foreground">No tienes permisos para ver esta página.</p>
