@@ -11,14 +11,21 @@ export async function GET(request: Request) {
 
   const supabase = createServerClient()
 
-  // Get all users with their clinic name
+  // Get all users from public.users (sin email — está en auth.users)
   const { data: users, error } = await supabase
     .from("users")
-    .select("id, name, email, role, clinic_id, created_at")
+    .select("id, name, role, clinic_id, created_at")
     .order("created_at", { ascending: false })
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Obtener emails desde auth.users vía admin API
+  const { data: authList } = await supabase.auth.admin.listUsers({ perPage: 1000 })
+  const emailMap: Record<string, string> = {}
+  for (const au of authList?.users ?? []) {
+    emailMap[au.id] = au.email ?? ""
   }
 
   // Get clinic names
@@ -35,8 +42,8 @@ export async function GET(request: Request) {
 
   const result = (users ?? []).map((u) => ({
     id: u.id,
-    name: u.name ?? u.email ?? "—",
-    email: u.email ?? "—",
+    name: u.name ?? emailMap[u.id] ?? "—",
+    email: emailMap[u.id] ?? "—",
     role: u.role ?? "asistente",
     clinic_id: u.clinic_id,
     clinic_name: u.clinic_id ? (clinicMap[u.clinic_id] ?? "—") : null,
