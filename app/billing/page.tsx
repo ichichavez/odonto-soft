@@ -19,8 +19,7 @@ type Subscription = {
   status: string
   current_period_end: string | null
   cancel_at_period_end: boolean
-  stripe_customer_id: string | null
-  stripe_subscription_id: string | null
+  dlocal_order_id: string | null
 }
 
 type PlanUsage = {
@@ -73,7 +72,6 @@ export default function BillingPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null)
   const [planUsage, setPlanUsage] = useState<PlanUsage | null>(null)
   const [loading, setLoading] = useState(true)
-  const [portalLoading, setPortalLoading] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
 
   useEffect(() => {
@@ -84,7 +82,7 @@ export default function BillingPage() {
       const [{ data: subData }, sessionData] = await Promise.all([
         (supabase as any)
           .from("subscriptions")
-          .select("plan, status, current_period_end, cancel_at_period_end, stripe_customer_id, stripe_subscription_id")
+          .select("plan, status, current_period_end, cancel_at_period_end, dlocal_order_id")
           .eq("clinic_id", user.clinic_id)
           .single(),
         supabase.auth.getSession(),
@@ -103,35 +101,17 @@ export default function BillingPage() {
     load()
   }, [user])
 
-  const openPortal = async () => {
+  const openCheckout = async (plan?: string) => {
     if (!session?.access_token) return
-    setPortalLoading(true)
-    try {
-      const res = await fetch("/api/stripe/portal", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      })
-      const { url, error } = await res.json()
-      if (error) throw new Error(error)
-      window.location.href = url
-    } catch (err: any) {
-      alert(err.message)
-    } finally {
-      setPortalLoading(false)
-    }
-  }
-
-  const openCheckout = async () => {
-    if (!session?.access_token || !subscription) return
     setCheckoutLoading(true)
     try {
-      const res = await fetch("/api/stripe/create-checkout", {
+      const res = await fetch("/api/dlocal/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify({ plan: subscription.plan }),
+        body: JSON.stringify({ plan: plan ?? subscription?.plan ?? "basico" }),
       })
       const { url, error } = await res.json()
       if (error) throw new Error(error)
@@ -151,7 +131,7 @@ export default function BillingPage() {
       })
     : null
 
-  const hasStripeSubscription = !!subscription?.stripe_subscription_id
+  const hasDlocalSubscription = !!subscription?.dlocal_order_id
   const isTrialing = subscription?.status === "trialing"
   const isActive = subscription?.status === "active"
 
@@ -210,17 +190,14 @@ export default function BillingPage() {
 
               {/* Actions */}
               <div className="flex gap-3 flex-wrap pt-1">
-                {hasStripeSubscription ? (
-                  <Button onClick={openPortal} disabled={portalLoading} className="gap-2">
-                    <ExternalLink className="h-4 w-4" />
-                    {portalLoading ? "Abriendo..." : "Gestionar suscripción"}
-                  </Button>
-                ) : (
-                  <Button onClick={openCheckout} disabled={checkoutLoading} className="gap-2">
-                    <CreditCard className="h-4 w-4" />
-                    {checkoutLoading ? "Redirigiendo..." : "Agregar método de pago"}
-                  </Button>
-                )}
+                <Button onClick={() => openCheckout()} disabled={checkoutLoading} className="gap-2">
+                  <CreditCard className="h-4 w-4" />
+                  {checkoutLoading
+                    ? "Redirigiendo..."
+                    : hasDlocalSubscription
+                    ? "Renovar / cambiar plan"
+                    : "Suscribirme ahora"}
+                </Button>
 
                 {!isTrialing && !isActive && (
                   <Button variant="outline" onClick={() => router.push("/precios")}>
@@ -229,9 +206,9 @@ export default function BillingPage() {
                 )}
               </div>
 
-              {isTrialing && !hasStripeSubscription && (
+              {isTrialing && !hasDlocalSubscription && (
                 <p className="text-xs text-muted-foreground">
-                  Agregá tu tarjeta antes de que termine la prueba para no perder el acceso.
+                  Suscribite antes de que termine la prueba para no perder el acceso.
                 </p>
               )}
             </>
@@ -295,9 +272,9 @@ export default function BillingPage() {
       {/* Info card */}
       <Card className="bg-muted/30">
         <CardContent className="pt-5 pb-4 text-sm text-muted-foreground space-y-2">
-          <p>• Para cambiar el método de pago, cancelar o ver facturas, usá el portal de facturación.</p>
+          <p>• Los pagos se procesan de forma segura a través de dLocalGo.</p>
           <p>• Si tu pago falla, tenés 7 días para actualizarlo antes de que se suspenda la cuenta.</p>
-          <p>• Al cancelar, mantenés el acceso hasta el fin del período pagado.</p>
+          <p>• Para cancelar tu suscripción, contactá a soporte.</p>
         </CardContent>
       </Card>
     </div>

@@ -23,16 +23,11 @@ import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
 
-const PLAN_PRICES: Record<string, { label: string; priceId: string }[]> = {
-  pro: [
-    { label: "Pro Mensual ($29/mes)", priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_MONTHLY ?? "price_placeholder_pro_monthly" },
-    { label: "Pro Anual ($290/año)", priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_PRO_ANNUAL ?? "price_placeholder_pro_annual" },
-  ],
-  enterprise: [
-    { label: "Enterprise Mensual ($79/mes)", priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ENT_MONTHLY ?? "price_placeholder_enterprise_monthly" },
-    { label: "Enterprise Anual ($790/año)", priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ENT_ANNUAL ?? "price_placeholder_enterprise_annual" },
-  ],
-}
+const PLAN_OPTIONS: { value: string; label: string }[] = [
+  { value: "basico",      label: "Básico ($59/mes)"       },
+  { value: "pro",         label: "Pro ($99/mes)"           },
+  { value: "empresarial", label: "Empresarial ($179/mes)"  },
+]
 
 const SUB_STATUS_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   active: "default",
@@ -56,7 +51,6 @@ export default function BillingPage() {
   const [error, setError] = useState<string | null>(null)
   const [checkoutClinic, setCheckoutClinic] = useState<SubscriptionRow | null>(null)
   const [selectedPlan, setSelectedPlan] = useState<string>("pro")
-  const [selectedPrice, setSelectedPrice] = useState<string>("")
   const [creatingLink, setCreatingLink] = useState(false)
   const { toast } = useToast()
 
@@ -75,10 +69,10 @@ export default function BillingPage() {
   const pastDue = subs.filter((s) => s.status === "past_due").length
 
   const handleCreateLink = async () => {
-    if (!checkoutClinic || !selectedPrice) return
+    if (!checkoutClinic) return
     setCreatingLink(true)
     try {
-      const url = await createCheckoutSession(checkoutClinic.clinic_id, selectedPrice)
+      const url = await createCheckoutSession(checkoutClinic.clinic_id, selectedPlan)
       window.open(url, "_blank", "noopener,noreferrer")
       setCheckoutClinic(null)
     } catch (e: any) {
@@ -90,8 +84,7 @@ export default function BillingPage() {
 
   const openCheckout = (sub: SubscriptionRow) => {
     setCheckoutClinic(sub)
-    setSelectedPlan("pro")
-    setSelectedPrice(PLAN_PRICES.pro[0]?.priceId ?? "")
+    setSelectedPlan(sub.plan ?? "pro")
   }
 
   return (
@@ -99,7 +92,7 @@ export default function BillingPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Facturación</h1>
-          <p className="text-slate-400 text-sm mt-1">Suscripciones Stripe por clínica</p>
+          <p className="text-slate-400 text-sm mt-1">Suscripciones dLocalGo por clínica</p>
         </div>
         <Button
           variant="outline"
@@ -150,7 +143,7 @@ export default function BillingPage() {
               <tr className="border-b border-slate-700 text-left text-slate-400">
                 <th className="px-5 py-3.5 font-medium">Clínica</th>
                 <th className="px-5 py-3.5 font-medium">Plan</th>
-                <th className="px-5 py-3.5 font-medium">Estado Stripe</th>
+                <th className="px-5 py-3.5 font-medium">Estado</th>
                 <th className="px-5 py-3.5 font-medium">Período</th>
                 <th className="px-5 py-3.5 font-medium">MRR</th>
                 <th className="px-5 py-3.5 font-medium">Actualizado</th>
@@ -238,38 +231,23 @@ export default function BillingPage() {
 
             <div>
               <p className="text-sm text-slate-400 mb-2">Plan</p>
-              <Select
-                value={selectedPlan}
-                onValueChange={(v) => {
-                  setSelectedPlan(v)
-                  setSelectedPrice(PLAN_PRICES[v]?.[0]?.priceId ?? "")
-                }}
-              >
+              <Select value={selectedPlan} onValueChange={setSelectedPlan}>
                 <SelectTrigger className="bg-slate-700 border-slate-600 text-slate-100">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-800 border-slate-600">
-                  <SelectItem value="pro" className="text-slate-100">Pro</SelectItem>
-                  <SelectItem value="enterprise" className="text-slate-100">Enterprise</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <p className="text-sm text-slate-400 mb-2">Precio</p>
-              <Select value={selectedPrice} onValueChange={setSelectedPrice}>
-                <SelectTrigger className="bg-slate-700 border-slate-600 text-slate-100">
-                  <SelectValue placeholder="Seleccionar precio..." />
-                </SelectTrigger>
-                <SelectContent className="bg-slate-800 border-slate-600">
-                  {(PLAN_PRICES[selectedPlan] ?? []).map((p) => (
-                    <SelectItem key={p.priceId} value={p.priceId} className="text-slate-100">
+                  {PLAN_OPTIONS.map((p) => (
+                    <SelectItem key={p.value} value={p.value} className="text-slate-100">
                       {p.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+
+            <p className="text-xs text-slate-500">
+              Se abrirá el checkout de dLocalGo para que la clínica complete el pago.
+            </p>
           </div>
 
           <DialogFooter>
@@ -282,10 +260,10 @@ export default function BillingPage() {
             </Button>
             <Button
               onClick={handleCreateLink}
-              disabled={creatingLink || !selectedPrice}
+              disabled={creatingLink}
               className="bg-emerald-600 hover:bg-emerald-500 text-white"
             >
-              {creatingLink ? "Creando..." : "Abrir enlace de Stripe"}
+              {creatingLink ? "Creando..." : "Abrir enlace de pago"}
             </Button>
           </DialogFooter>
         </DialogContent>

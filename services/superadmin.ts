@@ -111,8 +111,7 @@ export type SubscriptionRow = {
   clinic_name: string
   plan: string
   status: string
-  stripe_subscription_id: string | null
-  stripe_customer_id: string | null
+  dlocal_order_id: string | null
   current_period_start: string | null
   current_period_end: string | null
   cancel_at_period_end: boolean
@@ -127,16 +126,17 @@ export async function fetchSubscriptions(): Promise<SubscriptionRow[]> {
   return res.json()
 }
 
-// ── Stripe Checkout ───────────────────────────────────────────────────────────
+// ── dLocalGo Checkout ─────────────────────────────────────────────────────────
 
-export async function createCheckoutSession(clinicId: string, priceId: string): Promise<string> {
+export async function createCheckoutSession(clinicId: string, plan: string): Promise<string> {
   const headers = await getAuthHeader()
-  const res = await fetch("/api/stripe/checkout", {
+  const res = await fetch("/api/dlocal/checkout", {
     method: "POST",
     headers: { ...headers, "Content-Type": "application/json" },
-    body: JSON.stringify({ clinicId, priceId }),
+    body: JSON.stringify({ clinicId, plan }),
   })
   if (!res.ok) throw new Error(await res.text())
-  const { url } = await res.json()
+  const { url, error } = await res.json()
+  if (error) throw new Error(error)
   return url
 }
