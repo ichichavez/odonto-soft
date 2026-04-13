@@ -24,7 +24,7 @@ import { es } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
 
 const PLAN_OPTIONS: { value: string; label: string }[] = [
-  { value: "basico",      label: "Básico ($59/mes)"       },
+  { value: "basico",      label: "Básico ($64/mes)"       },
   { value: "pro",         label: "Pro ($99/mes)"           },
   { value: "empresarial", label: "Empresarial ($179/mes)"  },
 ]

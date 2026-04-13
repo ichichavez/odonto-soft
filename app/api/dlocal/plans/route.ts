@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       key: "basico",
       name: "OdontoSoft Básico",
       description: "Plan básico para pequeños consultorios — hasta 3 usuarios, 200 pacientes",
-      amount: 59,
+      amount: 64,
       currency: "USD",
     },
     {

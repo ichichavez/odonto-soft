@@ -21,7 +21,7 @@ const PLANS: Plan[] = [
   {
     id: "basico",
     name: "Básico",
-    price: 59,
+    price: 64,
     description: "Ideal para consultorios individuales",
     highlight: false,
     limits: "1 sucursal · hasta 3 usuarios",
