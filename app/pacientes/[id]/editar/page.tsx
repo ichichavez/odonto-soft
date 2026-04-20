@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { patientService } from "@/services/patients"
 import { isValidUUID } from "@/lib/utils"
+import { PhoneInput } from "@/components/phone-input"
 
 type PatientType = "adulto" | "nino"
 
@@ -265,12 +266,22 @@ export default function EditarPacientePage() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="phone">Teléfono</Label>
-                        <Input id="phone" placeholder="Teléfono fijo" value={patientData.phone} onChange={handleChange} />
+                        <Label>Teléfono</Label>
+                        <PhoneInput
+                          id="phone"
+                          value={patientData.phone}
+                          onChange={(v) => handleSelect("phone", v)}
+                          placeholder="Teléfono fijo"
+                        />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="secondary_phone">Celular</Label>
-                        <Input id="secondary_phone" placeholder="Teléfono celular" value={patientData.secondary_phone} onChange={handleChange} />
+                        <Label>Celular</Label>
+                        <PhoneInput
+                          id="secondary_phone"
+                          value={patientData.secondary_phone}
+                          onChange={(v) => handleSelect("secondary_phone", v)}
+                          placeholder="Teléfono celular"
+                        />
                       </div>
                     </div>
 
@@ -347,12 +358,22 @@ export default function EditarPacientePage() {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="guardian_phone">Teléfono del Encargado</Label>
-                        <Input id="guardian_phone" placeholder="Teléfono" value={patientData.guardian_phone} onChange={handleChange} />
+                        <Label>Teléfono del Encargado</Label>
+                        <PhoneInput
+                          id="guardian_phone"
+                          value={patientData.guardian_phone}
+                          onChange={(v) => handleSelect("guardian_phone", v)}
+                          placeholder="Teléfono"
+                        />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="guardian_secondary_phone">Celular del Encargado</Label>
-                        <Input id="guardian_secondary_phone" placeholder="Celular" value={patientData.guardian_secondary_phone} onChange={handleChange} />
+                        <Label>Celular del Encargado</Label>
+                        <PhoneInput
+                          id="guardian_secondary_phone"
+                          value={patientData.guardian_secondary_phone}
+                          onChange={(v) => handleSelect("guardian_secondary_phone", v)}
+                          placeholder="Celular"
+                        />
                       </div>
                     </div>
 
@@ -362,8 +383,13 @@ export default function EditarPacientePage() {
                         <Input id="email" type="email" placeholder="correo@ejemplo.com" value={patientData.email} onChange={handleChange} />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="phone">Teléfono del Paciente (si aplica)</Label>
-                        <Input id="phone" placeholder="Teléfono del paciente" value={patientData.phone} onChange={handleChange} />
+                        <Label>Teléfono del Paciente (si aplica)</Label>
+                        <PhoneInput
+                          id="phone"
+                          value={patientData.phone}
+                          onChange={(v) => handleSelect("phone", v)}
+                          placeholder="Teléfono del paciente"
+                        />
                       </div>
                     </div>
                   </div>

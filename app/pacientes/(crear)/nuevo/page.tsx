@@ -21,6 +21,7 @@ import {
   DentalRecordFormTabs,
   type DentalRecordFormHandle,
 } from "@/components/dental-record/dental-record-form-tabs"
+import { PhoneInput } from "@/components/phone-input"
 
 type PatientType = "adulto" | "nino"
 
@@ -135,14 +136,14 @@ export default function NuevoPacientePage() {
         treatments_done:  fd.treatmentsDone,
       } : {}
 
-      await patientService.create(
+      const newPatient = await patientService.create(
         { ...sanitized, clinic_id: clinic?.id ?? null },
         {},
         dentalRecord as any,
         activeBranch?.id
       )
-      toast({ title: "Paciente registrado", description: "El paciente ha sido registrado exitosamente." })
-      router.push("/pacientes")
+      toast({ title: "Paciente registrado", description: "Podés subir fotos en la pestaña Galería." })
+      router.push(`/pacientes/${newPatient.id}?nuevo=1`)
     } catch (error) {
       console.error(error)
       toast({ title: "Error", description: "No se pudo registrar el paciente. Inténtelo de nuevo.", variant: "destructive" })
@@ -236,12 +237,22 @@ export default function NuevoPacientePage() {
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Datos del paciente adulto</p>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="phone">Teléfono</Label>
-                        <Input id="phone" placeholder="Teléfono fijo" value={patientData.phone} onChange={handleChange} />
+                        <Label>Teléfono</Label>
+                        <PhoneInput
+                          id="phone"
+                          value={patientData.phone}
+                          onChange={(v) => handleSelect("phone", v)}
+                          placeholder="Teléfono fijo"
+                        />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="secondary_phone">Celular</Label>
-                        <Input id="secondary_phone" placeholder="Teléfono celular" value={patientData.secondary_phone} onChange={handleChange} />
+                        <Label>Celular</Label>
+                        <PhoneInput
+                          id="secondary_phone"
+                          value={patientData.secondary_phone}
+                          onChange={(v) => handleSelect("secondary_phone", v)}
+                          placeholder="Teléfono celular"
+                        />
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -309,12 +320,22 @@ export default function NuevoPacientePage() {
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="guardian_phone">Teléfono del Encargado</Label>
-                        <Input id="guardian_phone" placeholder="Teléfono" value={patientData.guardian_phone} onChange={handleChange} />
+                        <Label>Teléfono del Encargado</Label>
+                        <PhoneInput
+                          id="guardian_phone"
+                          value={patientData.guardian_phone}
+                          onChange={(v) => handleSelect("guardian_phone", v)}
+                          placeholder="Teléfono"
+                        />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="guardian_secondary_phone">Celular del Encargado</Label>
-                        <Input id="guardian_secondary_phone" placeholder="Celular" value={patientData.guardian_secondary_phone} onChange={handleChange} />
+                        <Label>Celular del Encargado</Label>
+                        <PhoneInput
+                          id="guardian_secondary_phone"
+                          value={patientData.guardian_secondary_phone}
+                          onChange={(v) => handleSelect("guardian_secondary_phone", v)}
+                          placeholder="Celular"
+                        />
                       </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -323,8 +344,13 @@ export default function NuevoPacientePage() {
                         <Input id="email" type="email" placeholder="correo@ejemplo.com" value={patientData.email} onChange={handleChange} />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="phone">Teléfono del Paciente (si aplica)</Label>
-                        <Input id="phone" placeholder="Teléfono del paciente" value={patientData.phone} onChange={handleChange} />
+                        <Label>Teléfono del Paciente (si aplica)</Label>
+                        <PhoneInput
+                          id="phone"
+                          value={patientData.phone}
+                          onChange={(v) => handleSelect("phone", v)}
+                          placeholder="Teléfono del paciente"
+                        />
                       </div>
                     </div>
                   </div>

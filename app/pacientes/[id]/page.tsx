@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Baby, Calendar, Camera, ClipboardList, Download, FileText, Grid3X3, Pencil, Pill, Plus, Stethoscope, Trash2, User, Wallet } from "lucide-react"
+import { ArrowLeft, Baby, Calendar, Camera, ClipboardList, Download, FileText, Grid3X3, Images, Pencil, Pill, Plus, Stethoscope, Trash2, User, Wallet } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect, useRef, useCallback } from "react"
 import Image from "next/image"
@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { appointmentService } from "@/services/appointments"
 import { budgetService } from "@/services/budgets"
 import { PatientGallery } from "@/components/patient-gallery"
-import { useRouter, useParams } from "next/navigation"
+import { useRouter, useParams, useSearchParams } from "next/navigation"
 import { isValidUUID } from "@/lib/utils"
 import { useClinic } from "@/context/clinic-context"
 import { useAuth } from "@/context/auth-context"
@@ -28,10 +28,12 @@ import { Separator } from "@/components/ui/separator"
 
 export default function PacienteDetallePage() {
   const params = useParams() as { id: string }
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const router = useRouter()
   const { clinic } = useClinic()
   const { user } = useAuth()
+  const [activeTab, setActiveTab] = useState("informacion")
   const [patient, setPatient] = useState<any>(null)
   const [appointments, setAppointments] = useState<any[]>([])
   const [budgets, setBudgets] = useState<any[]>([])
@@ -54,6 +56,13 @@ export default function PacienteDetallePage() {
     method: "efectivo",
     concept: "",
   })
+
+  // Auto-switch to gallery tab when coming from patient registration
+  useEffect(() => {
+    if (searchParams.get("nuevo") === "1") {
+      setActiveTab("galeria")
+    }
+  }, [searchParams])
 
   useEffect(() => {
     // Verificar si el ID es válido antes de hacer la consulta
@@ -406,10 +415,13 @@ export default function PacienteDetallePage() {
         </div>
       </div>
 
-      <Tabs defaultValue="informacion">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="informacion">Información</TabsTrigger>
           <TabsTrigger value="historial">Historial Médico</TabsTrigger>
+          <TabsTrigger value="galeria" className="flex items-center gap-1.5">
+            <Images className="h-3.5 w-3.5" />Galería
+          </TabsTrigger>
           <TabsTrigger value="citas">Citas</TabsTrigger>
           <TabsTrigger value="pagos" className="flex items-center gap-1.5">
             <Wallet className="h-3.5 w-3.5" />Pagos
@@ -527,7 +539,14 @@ export default function PacienteDetallePage() {
 
         <TabsContent value="historial" className="mt-6 space-y-6">
           <MedicalHistoryCard dentalRecord={dentalRecord} patientId={params.id} />
-          {/* Galería Dental */}
+        </TabsContent>
+
+        <TabsContent value="galeria" className="mt-6">
+          {searchParams.get("nuevo") === "1" && (
+            <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary">
+              Paciente registrado. Podés subir radiografías, fotos intraorales, extraorales y otros archivos.
+            </div>
+          )}
           {isValidUUID(params.id) && <PatientGallery patientId={params.id} />}
         </TabsContent>
 

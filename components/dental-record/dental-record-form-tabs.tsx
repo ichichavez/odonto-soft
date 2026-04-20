@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, forwardRef, useImperativeHandle } from "react"
+import { useState, forwardRef, useImperativeHandle } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
@@ -10,8 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FormSection } from "@/components/dental-record/form-section"
 import { CheckboxGroup } from "@/components/dental-record/checkbox-group"
 import { RadioGroupField } from "@/components/dental-record/radio-group-field"
+import { Textarea } from "@/components/ui/textarea"
 import {
-  Baby, User2, ClipboardList, Stethoscope, AlertCircle, Plus, Trash2,
+  Baby, User2, ClipboardList, Stethoscope, AlertCircle, Plus, Trash2, Grid3X3, ExternalLink,
 } from "lucide-react"
 import type {
   ExtraOralExam, IntraOralExam, Habits, MedicalHistory,
@@ -19,6 +20,49 @@ import type {
 } from "@/types/dental"
 
 // ─── Public types ───────────────────────────────────────────────────────────
+
+export interface ArmonizacionData {
+  // [2] Motivo / Expectativas
+  que_mejorar: string
+  resultado_esperado: string
+  tratamientos_previos: string
+  // [3] Antecedentes médicos
+  enfermedad_cronica: boolean
+  enfermedad_cronica_detalle: string
+  alergias: boolean
+  alergias_detalle: string
+  herpes: boolean
+  anticoagulantes: boolean
+  anticoagulantes_detalle: string
+  trastornos_neurologicos: boolean
+  trastornos_neurologicos_detalle: string
+  cicatrizacion_problemas: boolean
+  embarazo_lactancia: boolean
+  // [4] Medicamentos
+  medicamentos_actuales: string
+  suplementos: string
+  // [5] Antecedentes quirúrgicos / estéticos
+  cirugias_recientes: string
+  tratamientos_esteticos_previos: string
+  ultimo_tratamiento: string
+  // [6] Hábitos
+  fuma: boolean
+  alcohol: boolean
+  exposicion_solar: string
+  rutina_facial: string
+  // [7] Examen físico facial
+  simetria_facial: string
+  tonicidad_piel: string
+  volumenes_faciales: string
+  movilidad_muscular: string
+  arrugas: string
+  presencia_de: string
+  estado_labios_surcos: string
+  // [8] Consentimiento / Firma
+  firma_paciente: string
+  fecha_consentimiento: string
+  notas_adicionales: string
+}
 
 export interface DentalFormData {
   patientType: "adulto" | "nino"
@@ -41,6 +85,7 @@ export interface DentalFormData {
   medicalHistory: MedicalHistory
   dentalHistory: DentalHistory
   treatmentsDone: { date: string; tooth: string; description: string }[]
+  specialtyNotes: { ortodoncia: string; armonizacion: ArmonizacionData; perio: string }
 }
 
 export interface DentalRecordFormHandle {
@@ -58,6 +103,8 @@ interface Props {
   initialData?: Partial<DentalFormData>
   /** Additional tabs appended at the end (e.g. Consentimiento in ficha/page.tsx). */
   extraTabs?: ExtraTab[]
+  /** Patient ID used to build a link to the full odontogram page. */
+  patientId?: string
 }
 
 // ─── Defaults ───────────────────────────────────────────────────────────────
@@ -126,10 +173,32 @@ const defaultDietRecord = (): DietRecord => ({
   },
 })
 
+const defaultArmonizacion = (): ArmonizacionData => ({
+  que_mejorar: "", resultado_esperado: "", tratamientos_previos: "",
+  enfermedad_cronica: false, enfermedad_cronica_detalle: "",
+  alergias: false, alergias_detalle: "",
+  herpes: false,
+  anticoagulantes: false, anticoagulantes_detalle: "",
+  trastornos_neurologicos: false, trastornos_neurologicos_detalle: "",
+  cicatrizacion_problemas: false, embarazo_lactancia: false,
+  medicamentos_actuales: "", suplementos: "",
+  cirugias_recientes: "", tratamientos_esteticos_previos: "", ultimo_tratamiento: "",
+  fuma: false, alcohol: false, exposicion_solar: "", rutina_facial: "",
+  simetria_facial: "", tonicidad_piel: "", volumenes_faciales: "",
+  movilidad_muscular: "", arrugas: "", presencia_de: "", estado_labios_surcos: "",
+  firma_paciente: "", fecha_consentimiento: new Date().toISOString().slice(0, 10), notas_adicionales: "",
+})
+
+const defaultSpecialtyNotes = () => ({
+  ortodoncia: "",
+  armonizacion: defaultArmonizacion(),
+  perio: "",
+})
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
-  function DentalRecordFormTabs({ initialData, extraTabs }, ref) {
+  function DentalRecordFormTabs({ initialData, extraTabs, patientId }, ref) {
     const d = initialData
 
     const [patientType,      setPatientType]      = useState<"adulto" | "nino">(d?.patientType ?? "adulto")
@@ -196,6 +265,19 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
     const [dentalHistory,  setDentalHistory]  = useState<DentalHistory>(() => ({ ...defaultDentalHistory(), ...d?.dentalHistory }))
     const [treatmentsDone, setTreatmentsDone] = useState<{ date: string; tooth: string; description: string }[]>(d?.treatmentsDone ?? [])
 
+    // Specialty notes
+    const [ortodoncia, setOrtodoncia] = useState<string>(
+      typeof d?.specialtyNotes?.ortodoncia === "string" ? d.specialtyNotes.ortodoncia : ""
+    )
+    const [perio, setPerio] = useState<string>(
+      typeof d?.specialtyNotes?.perio === "string" ? d.specialtyNotes.perio : ""
+    )
+    const [armonizacion, setArmonizacion] = useState<ArmonizacionData>(() => {
+      const saved = d?.specialtyNotes?.armonizacion
+      if (saved && typeof saved === "object") return { ...defaultArmonizacion(), ...(saved as any) }
+      return defaultArmonizacion()
+    })
+
     // ── Expose data via ref ──────────────────────────────────────────
     useImperativeHandle(ref, () => ({
       getData: () => ({
@@ -203,6 +285,7 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
         profession, civilStatus, workAddress, weight, height, guardianName, guardianPhone,
         feedingHistory, dietRecord, extraOral, intraOral, habits, medicalHistory, dentalHistory,
         treatmentsDone,
+        specialtyNotes: { ortodoncia, armonizacion, perio },
       }),
     }))
 
@@ -215,6 +298,9 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
 
     const toggleReason = (r: string) =>
       setReasonOfVisit((prev) => prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r])
+
+    const setArmo = (key: keyof ArmonizacionData, val: any) =>
+      setArmonizacion((p) => ({ ...p, [key]: val }))
 
     // ── Render ──────────────────────────────────────────────────────
     return (
@@ -243,21 +329,25 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
         {/* Tabs */}
         <Tabs defaultValue="datos">
           <TabsList className="flex flex-wrap h-auto gap-1 mb-2">
-            <TabsTrigger value="datos"      className="gap-1.5 text-xs"><ClipboardList className="h-3.5 w-3.5" />Datos</TabsTrigger>
+            <TabsTrigger value="datos"        className="gap-1.5 text-xs"><ClipboardList className="h-3.5 w-3.5" />Datos</TabsTrigger>
+            <TabsTrigger value="medica"       className="gap-1.5 text-xs"><AlertCircle className="h-3.5 w-3.5" />Hist. Médico</TabsTrigger>
+            {patientType === "adulto" && (
+              <TabsTrigger value="odontologica" className="gap-1.5 text-xs">H. Dental</TabsTrigger>
+            )}
+            <TabsTrigger value="habitos"      className="gap-1.5 text-xs">Hábitos</TabsTrigger>
+            <TabsTrigger value="extraoral"    className="gap-1.5 text-xs"><Stethoscope className="h-3.5 w-3.5" />Extra Oral</TabsTrigger>
+            <TabsTrigger value="intraoral"    className="gap-1.5 text-xs"><Stethoscope className="h-3.5 w-3.5" />Intraoral</TabsTrigger>
+            <TabsTrigger value="odontograma"  className="gap-1.5 text-xs"><Grid3X3 className="h-3.5 w-3.5" />Odontograma</TabsTrigger>
+            <TabsTrigger value="tratamientos" className="gap-1.5 text-xs"><ClipboardList className="h-3.5 w-3.5" />Tratamiento</TabsTrigger>
+            <TabsTrigger value="ortodoncia"   className="gap-1.5 text-xs">Ortodoncia</TabsTrigger>
+            <TabsTrigger value="armonizacion" className="gap-1.5 text-xs">Armonización</TabsTrigger>
+            <TabsTrigger value="perio"        className="gap-1.5 text-xs">Perio</TabsTrigger>
             {patientType === "nino" && (
               <TabsTrigger value="alimentacion" className="gap-1.5 text-xs"><Baby className="h-3.5 w-3.5" />Alimentación</TabsTrigger>
-            )}
-            <TabsTrigger value="extraoral"  className="gap-1.5 text-xs"><Stethoscope className="h-3.5 w-3.5" />Extra Oral</TabsTrigger>
-            <TabsTrigger value="intraoral"  className="gap-1.5 text-xs"><Stethoscope className="h-3.5 w-3.5" />Intra Oral</TabsTrigger>
-            <TabsTrigger value="habitos"    className="gap-1.5 text-xs">Hábitos</TabsTrigger>
-            <TabsTrigger value="medica"     className="gap-1.5 text-xs"><AlertCircle className="h-3.5 w-3.5" />Hist. Médica</TabsTrigger>
-            {patientType === "adulto" && (
-              <TabsTrigger value="odontologica" className="gap-1.5 text-xs">Hist. Dental</TabsTrigger>
             )}
             {patientType === "nino" && (
               <TabsTrigger value="dieta" className="gap-1.5 text-xs">Dieta</TabsTrigger>
             )}
-            <TabsTrigger value="tratamientos" className="gap-1.5 text-xs"><ClipboardList className="h-3.5 w-3.5" />Tratamientos</TabsTrigger>
             {extraTabs?.map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5 text-xs">
                 {tab.trigger}
@@ -343,266 +433,6 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
                 </div>
               </FormSection>
             )}
-          </TabsContent>
-
-          {/* ── ALIMENTACIÓN (niño) ── */}
-          {patientType === "nino" && (
-            <TabsContent value="alimentacion" className="space-y-4">
-              <FormSection title="Tipo de lactancia">
-                <RadioGroupField
-                  name="breastfeeding_type"
-                  value={feedingHistory.breastfeeding_type}
-                  onChange={(v) => patchSection(setFeedingHistory, "breastfeeding_type", v)}
-                  options={[
-                    { value: "maternal", label: "Materna exclusiva (pecho)" },
-                    { value: "formula",  label: "Fórmula o Artificial" },
-                    { value: "mixed",    label: "Mixta (pecho y fórmula)" },
-                  ]}
-                  columns={3}
-                />
-              </FormSection>
-              <FormSection title="Duración de la lactancia">
-                <RadioGroupField
-                  name="breastfeeding_duration"
-                  value={feedingHistory.breastfeeding_duration}
-                  onChange={(v) => patchSection(setFeedingHistory, "breastfeeding_duration", v)}
-                  options={[
-                    { value: "3months", label: "3 meses" }, { value: "6months", label: "6 meses" },
-                    { value: "1year",   label: "1 año" },   { value: "1.5years", label: "1 año y medio" },
-                    { value: "2years",  label: "2 años" },  { value: "2.5years", label: "2 años y medio" },
-                    { value: "3years",  label: "3 años" },  { value: "other",    label: "Otro" },
-                  ]}
-                  columns={4}
-                />
-                {feedingHistory.breastfeeding_duration === "other" && (
-                  <Input
-                    value={feedingHistory.breastfeeding_duration_other}
-                    onChange={(e) => patchSection(setFeedingHistory, "breastfeeding_duration_other", e.target.value)}
-                    placeholder="Especificar"
-                    className="mt-2 max-w-xs"
-                  />
-                )}
-              </FormSection>
-              <FormSection title="Alimentación actual">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label>Edad de inicio de alimentos sólidos</Label>
-                    <Input value={feedingHistory.solid_food_age} onChange={(e) => patchSection(setFeedingHistory, "solid_food_age", e.target.value)} placeholder="Ej: 6 meses" />
-                  </div>
-                </div>
-                <Separator />
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {(["breakfast", "mid_morning", "lunch", "snack", "dinner"] as const).map((meal) => {
-                    const labels: Record<string, string> = { breakfast: "Desayuno", mid_morning: "Media mañana", lunch: "Almuerzo", snack: "Merienda", dinner: "Cena" }
-                    return (
-                      <div key={meal} className="space-y-1.5">
-                        <Label>{labels[meal]}</Label>
-                        <Input value={(feedingHistory as any)[meal]} onChange={(e) => patchSection(setFeedingHistory, meal, e.target.value)} />
-                      </div>
-                    )
-                  })}
-                </div>
-              </FormSection>
-            </TabsContent>
-          )}
-
-          {/* ── EXTRA ORAL ── */}
-          <TabsContent value="extraoral" className="space-y-4">
-            <FormSection title="ATM">
-              <CheckboxGroup items={[
-                { key: "pain_palpation", label: "Dolor a la palpación" },
-                { key: "pain_opening",   label: "Dolor en apertura bucal" },
-                { key: "pain_closing",   label: "Dolor en cierre bucal" },
-                { key: "joint_noise",    label: "Ruido articular" },
-                { key: "no_issues",      label: "Sin molestias" },
-                { key: "other",          label: "Otros", withInput: true },
-              ]} values={extraOral.atm} onChange={(k, v) => patchNested(setExtraOral, "atm", k, v)} columns={2} />
-            </FormSection>
-            <FormSection title="Cabeza">
-              <CheckboxGroup items={[
-                { key: "scar",         label: "Tiene cicatriz" },
-                { key: "asymmetry",    label: "Asimetría" },
-                { key: "normal_size",  label: "Tamaño normal" },
-                { key: "normal_shape", label: "Forma normal" },
-                { key: "other",        label: "Otro", withInput: true },
-              ]} values={extraOral.head} onChange={(k, v) => patchNested(setExtraOral, "head", k, v)} columns={2} />
-            </FormSection>
-            <FormSection title="Cara">
-              <CheckboxGroup items={[
-                { key: "asymmetric_front",    label: "Asimétrica visto de frente" },
-                { key: "convex_profile",      label: "Perfil convexo" },
-                { key: "concave_profile",     label: "Perfil cóncavo" },
-                { key: "straight_profile",    label: "Perfil recto" },
-                { key: "no_particularities",  label: "Sin particularidades" },
-              ]} values={extraOral.face} onChange={(k, v) => patchNested(setExtraOral, "face", k, v)} columns={2} />
-            </FormSection>
-            <FormSection title="Ganglios">
-              <CheckboxGroup items={[
-                { key: "no_particularities", label: "Sin particularidades" },
-                { key: "enlarged",           label: "Aumento de tamaño", withInput: true, inputPlaceholder: "Especificar ganglios" },
-                { key: "other",              label: "Otro", withInput: true },
-              ]} values={{ ...extraOral.lymph_nodes, enlarged_detail: extraOral.lymph_nodes.enlarged_detail }}
-                onChange={(k, v) => patchNested(setExtraOral, "lymph_nodes", k, v)} />
-            </FormSection>
-            <FormSection title="Labios">
-              <CheckboxGroup items={[
-                { key: "short",               label: "Cortos" },
-                { key: "normal",              label: "Normales, sin particularidades" },
-                { key: "dry_cracked",         label: "Secos, agrietados" },
-                { key: "injured_commissures", label: "Comisuras lastimadas" },
-                { key: "labial_incompetence", label: "Incompetencia labial" },
-              ]} values={extraOral.lips} onChange={(k, v) => patchNested(setExtraOral, "lips", k, v)} columns={2} />
-            </FormSection>
-          </TabsContent>
-
-          {/* ── INTRA ORAL ── */}
-          <TabsContent value="intraoral" className="space-y-4">
-            <FormSection title="Encía">
-              <CheckboxGroup items={[
-                { key: "localized_gingivitis",   label: "Gingivitis localizada" },
-                { key: "generalized_gingivitis", label: "Gingivitis generalizada" },
-                { key: "healthy",                label: "Encía sana" },
-                { key: "periodontal_pockets",    label: "Bolsas periodontales" },
-                { key: "other",                  label: "Otros", withInput: true },
-              ]} values={intraOral.gums} onChange={(k, v) => patchNested(setIntraOral, "gums", k, v)} columns={2} />
-            </FormSection>
-            <FormSection title="Lengua">
-              <CheckboxGroup items={[
-                { key: "no_anomalies",   label: "Sin anomalías" },
-                { key: "short_frenulum", label: "Frenillo lingual corto" },
-                { key: "geographic",     label: "Lengua geográfica" },
-                { key: "coated",         label: "Lengua saburral" },
-                { key: "other",          label: "Otros", withInput: true },
-              ]} values={intraOral.tongue} onChange={(k, v) => patchNested(setIntraOral, "tongue", k, v)} columns={2} />
-            </FormSection>
-            <FormSection title="Paladar duro">
-              <CheckboxGroup items={[
-                { key: "normal_size",   label: "Tamaño normal" },
-                { key: "normal_shape",  label: "Forma normal" },
-                { key: "color_anomaly", label: "Anomalía de color" },
-                { key: "ulcers",        label: "Úlceras" },
-                { key: "size_anomaly",  label: "Anomalía de tamaño" },
-                { key: "torus",         label: "Torus palatino" },
-                { key: "burns",         label: "Quemaduras" },
-                { key: "erythema",      label: "Eritemas" },
-                { key: "other",         label: "Otros", withInput: true },
-              ]} values={intraOral.hard_palate} onChange={(k, v) => patchNested(setIntraOral, "hard_palate", k, v)} columns={2} />
-            </FormSection>
-            <FormSection title="Paladar blando">
-              <CheckboxGroup items={[
-                { key: "no_particularities", label: "Sin particularidades" },
-                { key: "burns",              label: "Quemaduras" },
-                { key: "ulcers",             label: "Úlceras" },
-                { key: "petechiae_erythema", label: "Petequias / Eritemas" },
-              ]} values={intraOral.soft_palate} onChange={(k, v) => patchNested(setIntraOral, "soft_palate", k, v)} columns={2} />
-            </FormSection>
-            <FormSection title="Faringe (Clasificación de Brosky)">
-              <CheckboxGroup items={[
-                { key: "normal",              label: "Normales" },
-                { key: "grade1",              label: "Grado 1" },
-                { key: "grade2",              label: "Grado 2" },
-                { key: "grade3",              label: "Grado 3" },
-                { key: "grade4",              label: "Grado 4" },
-                { key: "surgically_removed",  label: "Extirpado quirúrgicamente" },
-              ]} values={intraOral.pharynx} onChange={(k, v) => patchNested(setIntraOral, "pharynx", k, v)} columns={3} />
-            </FormSection>
-            <FormSection title="Piso de boca">
-              <CheckboxGroup items={[
-                { key: "no_abnormalities", label: "Sin anormalidades" },
-                { key: "ranula",           label: "Ránula" },
-                { key: "short_frenulum",   label: "Frenillo lingual corto" },
-                { key: "lingual_tori",     label: "Torus linguales" },
-              ]} values={intraOral.floor_of_mouth} onChange={(k, v) => patchNested(setIntraOral, "floor_of_mouth", k, v)} columns={2} />
-            </FormSection>
-            {patientType === "nino" && (
-              <FormSection title="Tipo de oclusión — Dentición temporal">
-                <CheckboxGroup items={[
-                  { key: "straight_terminal_plane", label: "Plano terminal recto" },
-                  { key: "mesial_terminal_plane",   label: "Plano terminal mesial" },
-                  { key: "distal_terminal_plane",   label: "Plano terminal distal" },
-                ]} values={intraOral.occlusion_temporary} onChange={(k, v) => patchNested(setIntraOral, "occlusion_temporary", k, v)} columns={3} />
-              </FormSection>
-            )}
-            <FormSection title="Tipo de oclusión — Mixta o permanente (1ros Molares)">
-              <CheckboxGroup items={[
-                { key: "class1", label: "Clase I" },
-                { key: "class2", label: "Clase II" },
-                { key: "class3", label: "Clase III" },
-              ]} values={intraOral.occlusion_mixed_permanent} onChange={(k, v) => patchNested(setIntraOral, "occlusion_mixed_permanent", k, v)} columns={3} />
-            </FormSection>
-            <FormSection title="Tipo de mordida">
-              <CheckboxGroup items={[
-                { key: "normal",                  label: "Normal" },
-                { key: "anterior_crossbite",      label: "Cruzada anterior" },
-                { key: "posterior_crossbite",     label: "Cruzada posterior" },
-                { key: "single_tooth_crossbite",  label: "Cruzada de un diente" },
-                { key: "anterior_open_bite",      label: "Mordida abierta anterior" },
-                { key: "scissor_bite",            label: "Mordida en tijera" },
-                { key: "other",                   label: "Otros", withInput: true },
-              ]} values={intraOral.bite_type} onChange={(k, v) => patchNested(setIntraOral, "bite_type", k, v)} columns={2} />
-            </FormSection>
-          </TabsContent>
-
-          {/* ── HÁBITOS ── */}
-          <TabsContent value="habitos" className="space-y-4">
-            <FormSection title="Hábitos">
-              <CheckboxGroup items={[
-                { key: "finger_sucking",  label: "Chuparse el dedo", withInput: true, inputPlaceholder: "¿Cuál?" },
-                { key: "nail_biting",     label: "Onicofagia (morderse las uñas)" },
-                { key: "pencil_biting",   label: "Morder lápices" },
-                { key: "pen_biting",      label: "Morder bolígrafos" },
-                { key: "lip_interposition", label: "Interposición labial" },
-                { key: "no_bad_habits",   label: "Ningún mal hábito" },
-              ]}
-                values={{ ...habits, finger_sucking_detail: habits.finger_sucking_which }}
-                onChange={(k, v) => {
-                  if (k === "finger_sucking_detail") setHabits((p) => ({ ...p, finger_sucking_which: v as string }))
-                  else patchSection(setHabits, k, v)
-                }}
-                columns={2}
-              />
-            </FormSection>
-            <FormSection title="Apertura bucal">
-              <RadioGroupField name="mouth_opening" value={habits.mouth_opening}
-                onChange={(v) => patchSection(setHabits, "mouth_opening", v)}
-                options={[
-                  { value: "normal",  label: "Normal" },
-                  { value: "limited", label: "Limitada" },
-                  { value: "right",   label: "Desviada a la derecha" },
-                  { value: "left",    label: "Desviada a la izquierda" },
-                ]} />
-            </FormSection>
-            <FormSection title="Cierre labial">
-              <RadioGroupField name="lip_closure" value={habits.lip_closure}
-                onChange={(v) => patchSection(setHabits, "lip_closure", v)}
-                options={[
-                  { value: "normal",       label: "Normal" },
-                  { value: "insufficient", label: "Insuficiente" },
-                  { value: "other",        label: "Otros" },
-                ]} columns={3} />
-              {habits.lip_closure === "other" && (
-                <Input value={habits.lip_closure_other} onChange={(e) => patchSection(setHabits, "lip_closure_other", e.target.value)} placeholder="Especificar" className="max-w-xs" />
-              )}
-            </FormSection>
-            <FormSection title="Respiración">
-              <RadioGroupField name="breathing" value={habits.breathing}
-                onChange={(v) => patchSection(setHabits, "breathing", v)}
-                options={[
-                  { value: "nasal", label: "Nasal" },
-                  { value: "oral",  label: "Bucal" },
-                  { value: "mixed", label: "Mixta" },
-                ]} columns={3} />
-            </FormSection>
-            <FormSection title="Deglución">
-              <RadioGroupField name="swallowing" value={habits.swallowing}
-                onChange={(v) => patchSection(setHabits, "swallowing", v)}
-                options={[
-                  { value: "normal",                    label: "Normal" },
-                  { value: "chin_wrinkle",              label: "Arruga el mentón al deglutir" },
-                  { value: "lingual_interposition",     label: "Con interposición lingual" },
-                  { value: "lower_lip_interposition",   label: "Con interposición labial inferior" },
-                ]} />
-            </FormSection>
           </TabsContent>
 
           {/* ── HISTORIA MÉDICA ── */}
@@ -760,6 +590,608 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
             </TabsContent>
           )}
 
+          {/* ── HÁBITOS ── */}
+          <TabsContent value="habitos" className="space-y-4">
+            <FormSection title="Hábitos">
+              <CheckboxGroup items={[
+                { key: "finger_sucking",  label: "Chuparse el dedo", withInput: true, inputPlaceholder: "¿Cuál?" },
+                { key: "nail_biting",     label: "Onicofagia (morderse las uñas)" },
+                { key: "pencil_biting",   label: "Morder lápices" },
+                { key: "pen_biting",      label: "Morder bolígrafos" },
+                { key: "lip_interposition", label: "Interposición labial" },
+                { key: "no_bad_habits",   label: "Ningún mal hábito" },
+              ]}
+                values={{ ...habits, finger_sucking_detail: habits.finger_sucking_which }}
+                onChange={(k, v) => {
+                  if (k === "finger_sucking_detail") setHabits((p) => ({ ...p, finger_sucking_which: v as string }))
+                  else patchSection(setHabits, k, v)
+                }}
+                columns={2}
+              />
+            </FormSection>
+            <FormSection title="Apertura bucal">
+              <RadioGroupField name="mouth_opening" value={habits.mouth_opening}
+                onChange={(v) => patchSection(setHabits, "mouth_opening", v)}
+                options={[
+                  { value: "normal",  label: "Normal" },
+                  { value: "limited", label: "Limitada" },
+                  { value: "right",   label: "Desviada a la derecha" },
+                  { value: "left",    label: "Desviada a la izquierda" },
+                ]} />
+            </FormSection>
+            <FormSection title="Cierre labial">
+              <RadioGroupField name="lip_closure" value={habits.lip_closure}
+                onChange={(v) => patchSection(setHabits, "lip_closure", v)}
+                options={[
+                  { value: "normal",       label: "Normal" },
+                  { value: "insufficient", label: "Insuficiente" },
+                  { value: "other",        label: "Otros" },
+                ]} columns={3} />
+              {habits.lip_closure === "other" && (
+                <Input value={habits.lip_closure_other} onChange={(e) => patchSection(setHabits, "lip_closure_other", e.target.value)} placeholder="Especificar" className="max-w-xs" />
+              )}
+            </FormSection>
+            <FormSection title="Respiración">
+              <RadioGroupField name="breathing" value={habits.breathing}
+                onChange={(v) => patchSection(setHabits, "breathing", v)}
+                options={[
+                  { value: "nasal", label: "Nasal" },
+                  { value: "oral",  label: "Bucal" },
+                  { value: "mixed", label: "Mixta" },
+                ]} columns={3} />
+            </FormSection>
+            <FormSection title="Deglución">
+              <RadioGroupField name="swallowing" value={habits.swallowing}
+                onChange={(v) => patchSection(setHabits, "swallowing", v)}
+                options={[
+                  { value: "normal",                    label: "Normal" },
+                  { value: "chin_wrinkle",              label: "Arruga el mentón al deglutir" },
+                  { value: "lingual_interposition",     label: "Con interposición lingual" },
+                  { value: "lower_lip_interposition",   label: "Con interposición labial inferior" },
+                ]} />
+            </FormSection>
+          </TabsContent>
+
+          {/* ── EXTRA ORAL ── */}
+          <TabsContent value="extraoral" className="space-y-4">
+            <FormSection title="ATM">
+              <CheckboxGroup items={[
+                { key: "pain_palpation", label: "Dolor a la palpación" },
+                { key: "pain_opening",   label: "Dolor en apertura bucal" },
+                { key: "pain_closing",   label: "Dolor en cierre bucal" },
+                { key: "joint_noise",    label: "Ruido articular" },
+                { key: "no_issues",      label: "Sin molestias" },
+                { key: "other",          label: "Otros", withInput: true },
+              ]} values={extraOral.atm} onChange={(k, v) => patchNested(setExtraOral, "atm", k, v)} columns={2} />
+            </FormSection>
+            <FormSection title="Cabeza">
+              <CheckboxGroup items={[
+                { key: "scar",         label: "Tiene cicatriz" },
+                { key: "asymmetry",    label: "Asimetría" },
+                { key: "normal_size",  label: "Tamaño normal" },
+                { key: "normal_shape", label: "Forma normal" },
+                { key: "other",        label: "Otro", withInput: true },
+              ]} values={extraOral.head} onChange={(k, v) => patchNested(setExtraOral, "head", k, v)} columns={2} />
+            </FormSection>
+            <FormSection title="Cara">
+              <CheckboxGroup items={[
+                { key: "asymmetric_front",    label: "Asimétrica visto de frente" },
+                { key: "convex_profile",      label: "Perfil convexo" },
+                { key: "concave_profile",     label: "Perfil cóncavo" },
+                { key: "straight_profile",    label: "Perfil recto" },
+                { key: "no_particularities",  label: "Sin particularidades" },
+              ]} values={extraOral.face} onChange={(k, v) => patchNested(setExtraOral, "face", k, v)} columns={2} />
+            </FormSection>
+            <FormSection title="Ganglios">
+              <CheckboxGroup items={[
+                { key: "no_particularities", label: "Sin particularidades" },
+                { key: "enlarged",           label: "Aumento de tamaño", withInput: true, inputPlaceholder: "Especificar ganglios" },
+                { key: "other",              label: "Otro", withInput: true },
+              ]} values={{ ...extraOral.lymph_nodes, enlarged_detail: extraOral.lymph_nodes.enlarged_detail }}
+                onChange={(k, v) => patchNested(setExtraOral, "lymph_nodes", k, v)} />
+            </FormSection>
+            <FormSection title="Labios">
+              <CheckboxGroup items={[
+                { key: "short",               label: "Cortos" },
+                { key: "normal",              label: "Normales, sin particularidades" },
+                { key: "dry_cracked",         label: "Secos, agrietados" },
+                { key: "injured_commissures", label: "Comisuras lastimadas" },
+                { key: "labial_incompetence", label: "Incompetencia labial" },
+              ]} values={extraOral.lips} onChange={(k, v) => patchNested(setExtraOral, "lips", k, v)} columns={2} />
+            </FormSection>
+          </TabsContent>
+
+          {/* ── INTRA ORAL ── */}
+          <TabsContent value="intraoral" className="space-y-4">
+            <FormSection title="Encía">
+              <CheckboxGroup items={[
+                { key: "localized_gingivitis",   label: "Gingivitis localizada" },
+                { key: "generalized_gingivitis", label: "Gingivitis generalizada" },
+                { key: "healthy",                label: "Encía sana" },
+                { key: "periodontal_pockets",    label: "Bolsas periodontales" },
+                { key: "other",                  label: "Otros", withInput: true },
+              ]} values={intraOral.gums} onChange={(k, v) => patchNested(setIntraOral, "gums", k, v)} columns={2} />
+            </FormSection>
+            <FormSection title="Lengua">
+              <CheckboxGroup items={[
+                { key: "no_anomalies",   label: "Sin anomalías" },
+                { key: "short_frenulum", label: "Frenillo lingual corto" },
+                { key: "geographic",     label: "Lengua geográfica" },
+                { key: "coated",         label: "Lengua saburral" },
+                { key: "other",          label: "Otros", withInput: true },
+              ]} values={intraOral.tongue} onChange={(k, v) => patchNested(setIntraOral, "tongue", k, v)} columns={2} />
+            </FormSection>
+            <FormSection title="Paladar duro">
+              <CheckboxGroup items={[
+                { key: "normal_size",   label: "Tamaño normal" },
+                { key: "normal_shape",  label: "Forma normal" },
+                { key: "color_anomaly", label: "Anomalía de color" },
+                { key: "ulcers",        label: "Úlceras" },
+                { key: "size_anomaly",  label: "Anomalía de tamaño" },
+                { key: "torus",         label: "Torus palatino" },
+                { key: "burns",         label: "Quemaduras" },
+                { key: "erythema",      label: "Eritemas" },
+                { key: "other",         label: "Otros", withInput: true },
+              ]} values={intraOral.hard_palate} onChange={(k, v) => patchNested(setIntraOral, "hard_palate", k, v)} columns={2} />
+            </FormSection>
+            <FormSection title="Paladar blando">
+              <CheckboxGroup items={[
+                { key: "no_particularities", label: "Sin particularidades" },
+                { key: "burns",              label: "Quemaduras" },
+                { key: "ulcers",             label: "Úlceras" },
+                { key: "petechiae_erythema", label: "Petequias / Eritemas" },
+              ]} values={intraOral.soft_palate} onChange={(k, v) => patchNested(setIntraOral, "soft_palate", k, v)} columns={2} />
+            </FormSection>
+            <FormSection title="Faringe (Clasificación de Brosky)">
+              <CheckboxGroup items={[
+                { key: "normal",              label: "Normales" },
+                { key: "grade1",              label: "Grado 1" },
+                { key: "grade2",              label: "Grado 2" },
+                { key: "grade3",              label: "Grado 3" },
+                { key: "grade4",              label: "Grado 4" },
+                { key: "surgically_removed",  label: "Extirpado quirúrgicamente" },
+              ]} values={intraOral.pharynx} onChange={(k, v) => patchNested(setIntraOral, "pharynx", k, v)} columns={3} />
+            </FormSection>
+            <FormSection title="Piso de boca">
+              <CheckboxGroup items={[
+                { key: "no_abnormalities", label: "Sin anormalidades" },
+                { key: "ranula",           label: "Ránula" },
+                { key: "short_frenulum",   label: "Frenillo lingual corto" },
+                { key: "lingual_tori",     label: "Torus linguales" },
+              ]} values={intraOral.floor_of_mouth} onChange={(k, v) => patchNested(setIntraOral, "floor_of_mouth", k, v)} columns={2} />
+            </FormSection>
+            {patientType === "nino" && (
+              <FormSection title="Tipo de oclusión — Dentición temporal">
+                <CheckboxGroup items={[
+                  { key: "straight_terminal_plane", label: "Plano terminal recto" },
+                  { key: "mesial_terminal_plane",   label: "Plano terminal mesial" },
+                  { key: "distal_terminal_plane",   label: "Plano terminal distal" },
+                ]} values={intraOral.occlusion_temporary} onChange={(k, v) => patchNested(setIntraOral, "occlusion_temporary", k, v)} columns={3} />
+              </FormSection>
+            )}
+            <FormSection title="Tipo de oclusión — Mixta o permanente (1ros Molares)">
+              <CheckboxGroup items={[
+                { key: "class1", label: "Clase I" },
+                { key: "class2", label: "Clase II" },
+                { key: "class3", label: "Clase III" },
+              ]} values={intraOral.occlusion_mixed_permanent} onChange={(k, v) => patchNested(setIntraOral, "occlusion_mixed_permanent", k, v)} columns={3} />
+            </FormSection>
+            <FormSection title="Tipo de mordida">
+              <CheckboxGroup items={[
+                { key: "normal",                  label: "Normal" },
+                { key: "anterior_crossbite",      label: "Cruzada anterior" },
+                { key: "posterior_crossbite",     label: "Cruzada posterior" },
+                { key: "single_tooth_crossbite",  label: "Cruzada de un diente" },
+                { key: "anterior_open_bite",      label: "Mordida abierta anterior" },
+                { key: "scissor_bite",            label: "Mordida en tijera" },
+                { key: "other",                   label: "Otros", withInput: true },
+              ]} values={intraOral.bite_type} onChange={(k, v) => patchNested(setIntraOral, "bite_type", k, v)} columns={2} />
+            </FormSection>
+          </TabsContent>
+
+          {/* ── ODONTOGRAMA ── */}
+          <TabsContent value="odontograma" className="space-y-4">
+            <div className="rounded-lg border bg-muted/30 p-8 text-center space-y-4">
+              <Grid3X3 className="h-12 w-12 mx-auto text-muted-foreground opacity-40" />
+              <div>
+                <p className="font-medium">Odontograma interactivo</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  El odontograma completo está disponible en el panel del paciente.
+                </p>
+              </div>
+              {patientId && (
+                <a
+                  href={`/pacientes/${patientId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Ir al odontograma
+                </a>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* ── TRATAMIENTOS ── */}
+          <TabsContent value="tratamientos" className="space-y-4">
+            <FormSection title="Tratamientos Realizados">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-2 pr-3 text-muted-foreground font-medium w-32">Fecha</th>
+                      <th className="text-left py-2 pr-3 text-muted-foreground font-medium w-24">Diente</th>
+                      <th className="text-left py-2 pr-3 text-muted-foreground font-medium">Tratamiento</th>
+                      <th className="w-8"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {treatmentsDone.map((row, i) => (
+                      <tr key={i}>
+                        <td className="py-2 pr-3">
+                          <Input type="date" value={row.date}
+                            onChange={(e) => setTreatmentsDone((prev) => prev.map((r, idx) => idx === i ? { ...r, date: e.target.value } : r))}
+                            className="h-7 text-xs" />
+                        </td>
+                        <td className="py-2 pr-3">
+                          <Input value={row.tooth}
+                            onChange={(e) => setTreatmentsDone((prev) => prev.map((r, idx) => idx === i ? { ...r, tooth: e.target.value } : r))}
+                            placeholder="Ej: 21" className="h-7 text-xs" />
+                        </td>
+                        <td className="py-2 pr-3">
+                          <Input value={row.description}
+                            onChange={(e) => setTreatmentsDone((prev) => prev.map((r, idx) => idx === i ? { ...r, description: e.target.value } : r))}
+                            placeholder="Descripción" className="h-7 text-xs" />
+                        </td>
+                        <td className="py-2">
+                          <button type="button" onClick={() => setTreatmentsDone((prev) => prev.filter((_, idx) => idx !== i))}
+                            className="text-muted-foreground hover:text-destructive transition-colors">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <Button type="button" variant="outline" size="sm" className="gap-2"
+                onClick={() => setTreatmentsDone((prev) => [...prev, { date: new Date().toISOString().slice(0, 10), tooth: "", description: "" }])}>
+                <Plus className="h-4 w-4" />
+                Agregar tratamiento
+              </Button>
+            </FormSection>
+          </TabsContent>
+
+          {/* ── ORTODONCIA ── */}
+          <TabsContent value="ortodoncia" className="space-y-4">
+            <FormSection title="Notas de Ortodoncia">
+              <Textarea
+                value={ortodoncia}
+                onChange={(e) => setOrtodoncia(e.target.value)}
+                placeholder="Observaciones, diagnóstico y plan de tratamiento ortodóntico, evolución, tipo de aparatología..."
+                rows={10}
+                className="resize-y"
+              />
+            </FormSection>
+          </TabsContent>
+
+          {/* ── ARMONIZACIÓN OROFACIAL ── */}
+          <TabsContent value="armonizacion" className="space-y-4">
+
+            {/* [2] Motivo / Expectativas */}
+            <FormSection title="Motivo de la consulta y expectativas">
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label>¿Qué le gustaría mejorar de su rostro?</Label>
+                  <Textarea
+                    value={armonizacion.que_mejorar}
+                    onChange={(e) => setArmo("que_mejorar", e.target.value)}
+                    placeholder="Describir zona/s de interés..."
+                    rows={2}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>¿Qué resultado espera del tratamiento?</Label>
+                  <Textarea
+                    value={armonizacion.resultado_esperado}
+                    onChange={(e) => setArmo("resultado_esperado", e.target.value)}
+                    placeholder="Expectativas del paciente..."
+                    rows={2}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>¿Ha recibido tratamientos previos de botox o rellenos? ¿Cuándo y en qué zonas?</Label>
+                  <Textarea
+                    value={armonizacion.tratamientos_previos}
+                    onChange={(e) => setArmo("tratamientos_previos", e.target.value)}
+                    placeholder="Especificar producto, zona y fecha aproximada..."
+                    rows={2}
+                  />
+                </div>
+              </div>
+            </FormSection>
+
+            {/* [3] Antecedentes médicos */}
+            <FormSection title="Antecedentes médicos generales">
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="armo_enfermedad_cronica" checked={armonizacion.enfermedad_cronica}
+                      onChange={(e) => setArmo("enfermedad_cronica", e.target.checked)} className="h-4 w-4 accent-primary" />
+                    <Label htmlFor="armo_enfermedad_cronica">Padece enfermedad crónica (diabetes, hipertensión, autoinmunes…)</Label>
+                  </div>
+                  {armonizacion.enfermedad_cronica && (
+                    <Input value={armonizacion.enfermedad_cronica_detalle} onChange={(e) => setArmo("enfermedad_cronica_detalle", e.target.value)} placeholder="Especificar" className="ml-6 max-w-sm" />
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="armo_alergias" checked={armonizacion.alergias}
+                      onChange={(e) => setArmo("alergias", e.target.checked)} className="h-4 w-4 accent-primary" />
+                    <Label htmlFor="armo_alergias">Reacciones alérgicas a medicamentos o sustancias</Label>
+                  </div>
+                  {armonizacion.alergias && (
+                    <Input value={armonizacion.alergias_detalle} onChange={(e) => setArmo("alergias_detalle", e.target.value)} placeholder="¿A qué?" className="ml-6 max-w-sm" />
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="armo_herpes" checked={armonizacion.herpes}
+                    onChange={(e) => setArmo("herpes", e.target.checked)} className="h-4 w-4 accent-primary" />
+                  <Label htmlFor="armo_herpes">Antecedentes de herpes facial o perioral</Label>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="armo_anticoagulantes" checked={armonizacion.anticoagulantes}
+                      onChange={(e) => setArmo("anticoagulantes", e.target.checked)} className="h-4 w-4 accent-primary" />
+                    <Label htmlFor="armo_anticoagulantes">Usa anticoagulantes o antiagregantes plaquetarios</Label>
+                  </div>
+                  {armonizacion.anticoagulantes && (
+                    <Input value={armonizacion.anticoagulantes_detalle} onChange={(e) => setArmo("anticoagulantes_detalle", e.target.value)} placeholder="¿Cuál/Cuáles?" className="ml-6 max-w-sm" />
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="armo_neurologico" checked={armonizacion.trastornos_neurologicos}
+                      onChange={(e) => setArmo("trastornos_neurologicos", e.target.checked)} className="h-4 w-4 accent-primary" />
+                    <Label htmlFor="armo_neurologico">Trastornos neurológicos (miastenia gravis, ELA…)</Label>
+                  </div>
+                  {armonizacion.trastornos_neurologicos && (
+                    <Input value={armonizacion.trastornos_neurologicos_detalle} onChange={(e) => setArmo("trastornos_neurologicos_detalle", e.target.value)} placeholder="Especificar" className="ml-6 max-w-sm" />
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="armo_cicatrizacion" checked={armonizacion.cicatrizacion_problemas}
+                    onChange={(e) => setArmo("cicatrizacion_problemas", e.target.checked)} className="h-4 w-4 accent-primary" />
+                  <Label htmlFor="armo_cicatrizacion">Problemas de cicatrización o tendencia a formar queloides</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="armo_embarazo" checked={armonizacion.embarazo_lactancia}
+                    onChange={(e) => setArmo("embarazo_lactancia", e.target.checked)} className="h-4 w-4 accent-primary" />
+                  <Label htmlFor="armo_embarazo">Embarazada o en período de lactancia</Label>
+                </div>
+              </div>
+            </FormSection>
+
+            {/* [4] Medicamentos */}
+            <FormSection title="Medicamentos y suplementos actuales">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Medicamentos actuales</Label>
+                  <Textarea
+                    value={armonizacion.medicamentos_actuales}
+                    onChange={(e) => setArmo("medicamentos_actuales", e.target.value)}
+                    placeholder="Nombre, dosis, frecuencia..."
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Suplementos, vitaminas o productos naturales</Label>
+                  <Textarea
+                    value={armonizacion.suplementos}
+                    onChange={(e) => setArmo("suplementos", e.target.value)}
+                    placeholder="Vitamina C, omega 3, colágeno..."
+                    rows={3}
+                  />
+                </div>
+              </div>
+            </FormSection>
+
+            {/* [5] Antecedentes quirúrgicos / estéticos */}
+            <FormSection title="Antecedentes quirúrgicos y estéticos">
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label>Cirugías recientes</Label>
+                  <Input
+                    value={armonizacion.cirugias_recientes}
+                    onChange={(e) => setArmo("cirugias_recientes", e.target.value)}
+                    placeholder="Tipo y fecha aproximada"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Tratamientos estéticos previos (rellenos, toxina botulínica, hilos, láser, peelings profundos…)</Label>
+                  <Textarea
+                    value={armonizacion.tratamientos_esteticos_previos}
+                    onChange={(e) => setArmo("tratamientos_esteticos_previos", e.target.value)}
+                    placeholder="Describir producto, zona y resultado..."
+                    rows={3}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Fecha del último tratamiento</Label>
+                  <Input
+                    value={armonizacion.ultimo_tratamiento}
+                    onChange={(e) => setArmo("ultimo_tratamiento", e.target.value)}
+                    placeholder="Ej: hace 6 meses"
+                  />
+                </div>
+              </div>
+            </FormSection>
+
+            {/* [6] Hábitos y estilo de vida */}
+            <FormSection title="Hábitos y estilo de vida">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="armo_fuma" checked={armonizacion.fuma}
+                    onChange={(e) => setArmo("fuma", e.target.checked)} className="h-4 w-4 accent-primary" />
+                  <Label htmlFor="armo_fuma">Fuma</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="armo_alcohol" checked={armonizacion.alcohol}
+                    onChange={(e) => setArmo("alcohol", e.target.checked)} className="h-4 w-4 accent-primary" />
+                  <Label htmlFor="armo_alcohol">Consume alcohol</Label>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Exposición solar frecuente</Label>
+                    <Input
+                      value={armonizacion.exposicion_solar}
+                      onChange={(e) => setArmo("exposicion_solar", e.target.value)}
+                      placeholder="Frecuencia y uso de protector solar"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Rutina de cuidado facial habitual</Label>
+                    <Input
+                      value={armonizacion.rutina_facial}
+                      onChange={(e) => setArmo("rutina_facial", e.target.value)}
+                      placeholder="Limpiador, hidratante, sérum…"
+                    />
+                  </div>
+                </div>
+              </div>
+            </FormSection>
+
+            {/* [7] Examen físico facial */}
+            <FormSection title="Examen físico facial">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label>Simetría facial</Label>
+                  <Input value={armonizacion.simetria_facial} onChange={(e) => setArmo("simetria_facial", e.target.value)} placeholder="Simétrico / Asimétrico + observaciones" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Tonicidad y calidad de la piel</Label>
+                  <Input value={armonizacion.tonicidad_piel} onChange={(e) => setArmo("tonicidad_piel", e.target.value)} placeholder="Flácida, firme, hidratada, fotoenvejec…" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Volúmenes faciales</Label>
+                  <Input value={armonizacion.volumenes_faciales} onChange={(e) => setArmo("volumenes_faciales", e.target.value)} placeholder="Pérdida de volumen, asimetrías…" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Movilidad muscular</Label>
+                  <Input value={armonizacion.movilidad_muscular} onChange={(e) => setArmo("movilidad_muscular", e.target.value)} placeholder="Normal, disminuida, hiperkinética…" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Arrugas estáticas y dinámicas</Label>
+                  <Input value={armonizacion.arrugas} onChange={(e) => setArmo("arrugas", e.target.value)} placeholder="Zona y grado (leve / moderado / severo)" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Presencia de</Label>
+                  <Input value={armonizacion.presencia_de} onChange={(e) => setArmo("presencia_de", e.target.value)} placeholder="Manchas, cicatrices, lesiones activas…" />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Estado de labios, surcos, pómulos y mentón</Label>
+                  <Textarea value={armonizacion.estado_labios_surcos} onChange={(e) => setArmo("estado_labios_surcos", e.target.value)} placeholder="Observaciones detalladas por zona…" rows={3} />
+                </div>
+              </div>
+            </FormSection>
+
+            {/* [8] Consentimiento / Firma */}
+            <FormSection title="Consentimiento informado">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                He sido informado/a de los beneficios, posibles complicaciones, cuidados post-tratamiento y expectativas realistas del tratamiento.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                <div className="space-y-1.5">
+                  <Label>Firma del paciente</Label>
+                  <Input value={armonizacion.firma_paciente} onChange={(e) => setArmo("firma_paciente", e.target.value)} placeholder="Nombre y apellido" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Fecha</Label>
+                  <Input type="date" value={armonizacion.fecha_consentimiento} onChange={(e) => setArmo("fecha_consentimiento", e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Notas adicionales</Label>
+                <Textarea value={armonizacion.notas_adicionales} onChange={(e) => setArmo("notas_adicionales", e.target.value)} placeholder="Observaciones del profesional, plan de sesiones, próximo control…" rows={4} className="resize-y" />
+              </div>
+            </FormSection>
+          </TabsContent>
+
+          {/* ── PERIODONCIA ── */}
+          <TabsContent value="perio" className="space-y-4">
+            <FormSection title="Notas de Periodoncia">
+              <Textarea
+                value={perio}
+                onChange={(e) => setPerio(e.target.value)}
+                placeholder="Diagnóstico periodontal, profundidad de bolsas, movilidad dentaria, plan de tratamiento, evolución..."
+                rows={10}
+                className="resize-y"
+              />
+            </FormSection>
+          </TabsContent>
+
+          {/* ── ALIMENTACIÓN (niño) ── */}
+          {patientType === "nino" && (
+            <TabsContent value="alimentacion" className="space-y-4">
+              <FormSection title="Tipo de lactancia">
+                <RadioGroupField
+                  name="breastfeeding_type"
+                  value={feedingHistory.breastfeeding_type}
+                  onChange={(v) => patchSection(setFeedingHistory, "breastfeeding_type", v)}
+                  options={[
+                    { value: "maternal", label: "Materna exclusiva (pecho)" },
+                    { value: "formula",  label: "Fórmula o Artificial" },
+                    { value: "mixed",    label: "Mixta (pecho y fórmula)" },
+                  ]}
+                  columns={3}
+                />
+              </FormSection>
+              <FormSection title="Duración de la lactancia">
+                <RadioGroupField
+                  name="breastfeeding_duration"
+                  value={feedingHistory.breastfeeding_duration}
+                  onChange={(v) => patchSection(setFeedingHistory, "breastfeeding_duration", v)}
+                  options={[
+                    { value: "3months", label: "3 meses" }, { value: "6months", label: "6 meses" },
+                    { value: "1year",   label: "1 año" },   { value: "1.5years", label: "1 año y medio" },
+                    { value: "2years",  label: "2 años" },  { value: "2.5years", label: "2 años y medio" },
+                    { value: "3years",  label: "3 años" },  { value: "other",    label: "Otro" },
+                  ]}
+                  columns={4}
+                />
+                {feedingHistory.breastfeeding_duration === "other" && (
+                  <Input
+                    value={feedingHistory.breastfeeding_duration_other}
+                    onChange={(e) => patchSection(setFeedingHistory, "breastfeeding_duration_other", e.target.value)}
+                    placeholder="Especificar"
+                    className="mt-2 max-w-xs"
+                  />
+                )}
+              </FormSection>
+              <FormSection title="Alimentación actual">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Edad de inicio de alimentos sólidos</Label>
+                    <Input value={feedingHistory.solid_food_age} onChange={(e) => patchSection(setFeedingHistory, "solid_food_age", e.target.value)} placeholder="Ej: 6 meses" />
+                  </div>
+                </div>
+                <Separator />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {(["breakfast", "mid_morning", "lunch", "snack", "dinner"] as const).map((meal) => {
+                    const labels: Record<string, string> = { breakfast: "Desayuno", mid_morning: "Media mañana", lunch: "Almuerzo", snack: "Merienda", dinner: "Cena" }
+                    return (
+                      <div key={meal} className="space-y-1.5">
+                        <Label>{labels[meal]}</Label>
+                        <Input value={(feedingHistory as any)[meal]} onChange={(e) => patchSection(setFeedingHistory, meal, e.target.value)} />
+                      </div>
+                    )
+                  })}
+                </div>
+              </FormSection>
+            </TabsContent>
+          )}
+
           {/* ── DIETA (niño) ── */}
           {patientType === "nino" && (
             <TabsContent value="dieta" className="space-y-4">
@@ -815,55 +1247,6 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
             </TabsContent>
           )}
 
-          {/* ── TRATAMIENTOS ── */}
-          <TabsContent value="tratamientos" className="space-y-4">
-            <FormSection title="Tratamientos Realizados">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-2 pr-3 text-muted-foreground font-medium w-32">Fecha</th>
-                      <th className="text-left py-2 pr-3 text-muted-foreground font-medium w-24">Diente</th>
-                      <th className="text-left py-2 pr-3 text-muted-foreground font-medium">Tratamiento</th>
-                      <th className="w-8"></th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {treatmentsDone.map((row, i) => (
-                      <tr key={i}>
-                        <td className="py-2 pr-3">
-                          <Input type="date" value={row.date}
-                            onChange={(e) => setTreatmentsDone((prev) => prev.map((r, idx) => idx === i ? { ...r, date: e.target.value } : r))}
-                            className="h-7 text-xs" />
-                        </td>
-                        <td className="py-2 pr-3">
-                          <Input value={row.tooth}
-                            onChange={(e) => setTreatmentsDone((prev) => prev.map((r, idx) => idx === i ? { ...r, tooth: e.target.value } : r))}
-                            placeholder="Ej: 21" className="h-7 text-xs" />
-                        </td>
-                        <td className="py-2 pr-3">
-                          <Input value={row.description}
-                            onChange={(e) => setTreatmentsDone((prev) => prev.map((r, idx) => idx === i ? { ...r, description: e.target.value } : r))}
-                            placeholder="Descripción" className="h-7 text-xs" />
-                        </td>
-                        <td className="py-2">
-                          <button type="button" onClick={() => setTreatmentsDone((prev) => prev.filter((_, idx) => idx !== i))}
-                            className="text-muted-foreground hover:text-destructive transition-colors">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <Button type="button" variant="outline" size="sm" className="gap-2"
-                onClick={() => setTreatmentsDone((prev) => [...prev, { date: new Date().toISOString().slice(0, 10), tooth: "", description: "" }])}>
-                <Plus className="h-4 w-4" />
-                Agregar tratamiento
-              </Button>
-            </FormSection>
-          </TabsContent>
           {/* ── EXTRA TABS (e.g. Consentimiento) ── */}
           {extraTabs?.map((tab) => (
             <TabsContent key={tab.value} value={tab.value} className="space-y-4">

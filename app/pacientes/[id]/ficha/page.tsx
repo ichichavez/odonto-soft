@@ -12,13 +12,15 @@ import { useClinic } from "@/context/clinic-context"
 import { dentalRecordService } from "@/services/dental-records"
 import { consentService } from "@/services/consent"
 import { patientService } from "@/services/patients"
+import { consentTemplateService, type ConsentTemplate, SPECIALTY_LABELS } from "@/services/consent-templates"
 import { FormSection } from "@/components/dental-record/form-section"
 import {
   DentalRecordFormTabs,
   type DentalRecordFormHandle,
   type DentalFormData,
 } from "@/components/dental-record/dental-record-form-tabs"
-import { ArrowLeft, Save, Clock, FileSignature, History } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ArrowLeft, Save, Clock, FileSignature, History, Download, Loader2 } from "lucide-react"
 import Link from "next/link"
 import { useEffect } from "react"
 
@@ -35,10 +37,13 @@ export default function FichaOdontologicaPage() {
   const [history,     setHistory]     = useState<{ saved_at: string | null; saved_by_name: string | null }[]>([])
 
   // Consent state
-  const [signedByName,   setSignedByName]   = useState("")
-  const [signedByCi,     setSignedByCi]     = useState("")
-  const [signingConsent, setSigningConsent] = useState(false)
-  const [consentSigned,  setConsentSigned]  = useState(false)
+  const [signedByName,     setSignedByName]     = useState("")
+  const [signedByCi,       setSignedByCi]       = useState("")
+  const [signingConsent,   setSigningConsent]   = useState(false)
+  const [consentSigned,    setConsentSigned]    = useState(false)
+  const [consentTemplates, setConsentTemplates] = useState<ConsentTemplate[]>([])
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("general")
+  const [exportingPdf,     setExportingPdf]     = useState(false)
 
   // Dental form ref + initial data (key forces remount when data arrives)
   const dentalFormRef = useRef<DentalRecordFormHandle>(null)
@@ -48,11 +53,13 @@ export default function FichaOdontologicaPage() {
   // ── Load ──────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     try {
-      const [patient, record, hist] = await Promise.all([
+      const [patient, record, hist, templates] = await Promise.all([
         patientService.getById(patientId).catch(() => null),
         dentalRecordService.getByPatient(patientId).catch(() => null),
         dentalRecordService.getHistory(patientId).catch(() => []),
+        clinic?.id ? consentTemplateService.getByClinic(clinic.id).catch(() => []) : Promise.resolve([]),
       ])
+      setConsentTemplates(templates)
 
       if (patient) setPatientName(`${patient.first_name} ${patient.last_name}`)
       setHistory(hist)
@@ -79,6 +86,7 @@ export default function FichaOdontologicaPage() {
           medicalHistory:  (record.medical_history as any) ?? undefined,
           dentalHistory:   (record.dental_history as any) ?? undefined,
           treatmentsDone:  (record as any).treatments_done ?? [],
+          specialtyNotes:  (record as any).specialty_notes ?? undefined,
         } satisfies Partial<DentalFormData>
 
         setFormInitialData(def)
@@ -123,6 +131,7 @@ export default function FichaOdontologicaPage() {
           medical_history:  fd.medicalHistory,
           dental_history:   fd.patientType === "adulto" ? fd.dentalHistory : null,
           treatments_done:  fd.treatmentsDone,
+          specialty_notes:  fd.specialtyNotes,
         } as any,
         user?.name ?? "Sistema",
         user?.id
@@ -138,22 +147,87 @@ export default function FichaOdontologicaPage() {
     }
   }
 
+  // ── Helpers de consentimiento ─────────────────────────────────────
+  const getActiveConsentText = (): string | null => {
+    if (selectedTemplate === "general") return clinic?.consent_template ?? null
+    return consentTemplates.find((t) => t.id === selectedTemplate)?.content ?? null
+  }
+
+  const handleExportConsentPdf = async () => {
+    const text = getActiveConsentText()
+    if (!text) {
+      toast({ title: "Sin texto", description: "Seleccioná una plantilla con contenido.", variant: "destructive" })
+      return
+    }
+    setExportingPdf(true)
+    try {
+      const { jsPDF } = await import("jspdf")
+      const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
+      const pageW = doc.internal.pageSize.getWidth()
+      const margin = 20
+      const maxW = pageW - margin * 2
+      let y = 20
+
+      // Header
+      if (clinic?.name) {
+        doc.setFontSize(14).setFont("helvetica", "bold")
+        doc.text(clinic.name, pageW / 2, y, { align: "center" })
+        y += 8
+      }
+      doc.setFontSize(13).setFont("helvetica", "bold")
+      doc.text("CONSENTIMIENTO INFORMADO", pageW / 2, y, { align: "center" })
+      y += 10
+
+      // Patient
+      doc.setFontSize(10).setFont("helvetica", "normal")
+      doc.text(`Paciente: ${patientName}`, margin, y)
+      y += 6
+      doc.text(`Fecha: ${new Date().toLocaleDateString("es-PY")}`, margin, y)
+      y += 10
+
+      // Body
+      const lines = doc.splitTextToSize(text, maxW)
+      for (const line of lines) {
+        if (y > 270) { doc.addPage(); y = 20 }
+        doc.text(line, margin, y)
+        y += 5.5
+      }
+
+      // Signature block
+      y += 8
+      if (y > 250) { doc.addPage(); y = 20 }
+      doc.line(margin, y, margin + 70, y)
+      doc.line(pageW - margin - 50, y, pageW - margin, y)
+      y += 5
+      doc.setFontSize(9)
+      doc.text("Firma del paciente", margin, y)
+      doc.text("Fecha", pageW - margin - 50, y)
+
+      doc.save(`Consentimiento_${patientName.replace(/\s+/g, "_")}.pdf`)
+    } catch (err: any) {
+      toast({ title: "Error al generar PDF", description: err.message, variant: "destructive" })
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
   // ── Sign consent ──────────────────────────────────────────────────
   const handleSignConsent = async () => {
     if (!signedByName.trim()) {
       toast({ title: "Nombre requerido", description: "Ingrese el nombre del firmante.", variant: "destructive" })
       return
     }
-    if (!clinic?.consent_template) {
-      toast({ title: "Sin template", description: "Configure el texto del consentimiento en Ajustes.", variant: "destructive" })
+    const text = getActiveConsentText()
+    if (!text) {
+      toast({ title: "Sin plantilla", description: "Configure el texto del consentimiento en Ajustes → Documentos.", variant: "destructive" })
       return
     }
     setSigningConsent(true)
     try {
       await consentService.sign({
         patient_id:            patientId,
-        clinic_id:             clinic.id,
-        consent_text_snapshot: clinic.consent_template,
+        clinic_id:             clinic!.id,
+        consent_text_snapshot: text,
         signed_by_name:        signedByName,
         signed_by_ci:          signedByCi || null,
         created_by:            user?.id ?? null,
@@ -179,23 +253,71 @@ export default function FichaOdontologicaPage() {
   }
 
   // ── Consent tab content (passed as extraTab) ──────────────────────
+  const activeConsentText = getActiveConsentText()
+
   const consentContent = (
     <>
-      <FormSection title="Texto del consentimiento informado">
-        {clinic?.consent_template ? (
-          <div className="rounded-md border bg-muted/30 p-4 text-sm whitespace-pre-wrap text-muted-foreground leading-relaxed">
-            {clinic.consent_template}
+      {/* Template selector */}
+      <FormSection title="Seleccionar plantilla de consentimiento">
+        <div className="space-y-3">
+          <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+            <SelectTrigger>
+              <SelectValue placeholder="Seleccionar plantilla..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="general">Consentimiento general</SelectItem>
+              {consentTemplates.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}
+                  {SPECIALTY_LABELS[t.specialty] ? ` — ${SPECIALTY_LABELS[t.specialty]}` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {consentTemplates.length === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Podés crear plantillas adicionales en{" "}
+              <Link href="/settings?tab=documentos" className="text-primary underline underline-offset-2">
+                Ajustes → Documentos
+              </Link>.
+            </p>
+          )}
+        </div>
+      </FormSection>
+
+      {/* Template preview */}
+      <FormSection title="Texto del consentimiento">
+        <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
+          <p className="text-xs text-muted-foreground">
+            {activeConsentText ? `${activeConsentText.length} caracteres` : "Sin texto configurado"}
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={handleExportConsentPdf}
+            disabled={exportingPdf || !activeConsentText}
+          >
+            {exportingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            Exportar PDF
+          </Button>
+        </div>
+        {activeConsentText ? (
+          <div className="rounded-md border bg-muted/30 p-4 text-sm whitespace-pre-wrap text-muted-foreground leading-relaxed max-h-72 overflow-y-auto font-mono">
+            {activeConsentText}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            No hay template configurado.{" "}
-            <Link href="/settings" className="text-primary underline underline-offset-2">
-              Configurarlo en Ajustes
+            No hay texto configurado para esta plantilla.{" "}
+            <Link href="/settings?tab=documentos" className="text-primary underline underline-offset-2">
+              Configurar en Ajustes
             </Link>
           </p>
         )}
       </FormSection>
 
+      {/* Sign */}
       {!consentSigned ? (
         <FormSection title="Firma del paciente o responsable">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -211,7 +333,7 @@ export default function FichaOdontologicaPage() {
           <p className="text-xs text-muted-foreground">
             Al registrar la firma, se guardará una copia inmutable del texto del consentimiento vigente.
           </p>
-          <Button onClick={handleSignConsent} disabled={signingConsent || !clinic?.consent_template} className="gap-2">
+          <Button onClick={handleSignConsent} disabled={signingConsent || !activeConsentText} className="gap-2">
             <FileSignature className="h-4 w-4" />
             {signingConsent ? "Registrando..." : "Registrar firma"}
           </Button>
@@ -280,6 +402,7 @@ export default function FichaOdontologicaPage() {
         key={dataKey}
         ref={dentalFormRef}
         initialData={formInitialData}
+        patientId={patientId}
         extraTabs={[{
           value:   "consentimiento",
           trigger: <><FileSignature className="h-3.5 w-3.5" />Consentimiento</>,

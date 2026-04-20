@@ -13,13 +13,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
-import { SmileIcon as Tooth, Upload, Palette, Building2, Users, FileSignature, Stethoscope, Percent, UserPlus, Trash2, RefreshCw, MapPin, Pencil, PowerOff, Power } from "lucide-react"
+import { SmileIcon as Tooth, Upload, Palette, Building2, Users, FileSignature, Stethoscope, Percent, UserPlus, Trash2, RefreshCw, MapPin, Pencil, PowerOff, Power, Plus, FileUp, FileDown, X, ChevronDown, ChevronUp } from "lucide-react"
 import Image from "next/image"
 import { hexToHsl, getContrastColor } from "@/lib/color-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CURRENCIES } from "@/lib/currency"
 import { SignaturePad } from "@/components/signature-pad"
 import { createBrowserClient } from "@/lib/supabase"
+import { consentTemplateService, type ConsentTemplate, BUILTIN_TEMPLATES, SPECIALTY_LABELS } from "@/services/consent-templates"
 
 function ColorPreview({ color }: { color: string }) {
   const isValidHex = /^#[0-9A-Fa-f]{6}$/.test(color)
@@ -73,6 +74,16 @@ export default function SettingsPage() {
   const [editingBranch, setEditingBranch] = useState<any | null>(null)
   const [branchForm, setBranchForm] = useState({ name: "", address: "", phone: "" })
   const [savingBranch, setSavingBranch] = useState(false)
+
+  // ── Gestión de plantillas de consentimiento ───────────────────────────
+  const [consentTemplates, setConsentTemplates] = useState<ConsentTemplate[]>([])
+  const [loadingTemplates, setLoadingTemplates] = useState(false)
+  const [templateDialog, setTemplateDialog] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState<ConsentTemplate | null>(null)
+  const [templateForm, setTemplateForm] = useState({ name: "", specialty: "general", content: "" })
+  const [savingTemplate, setSavingTemplate] = useState(false)
+  const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null)
+  const templateFileRef = useRef<HTMLInputElement>(null)
 
   // ── Gestión de usuarios ───────────────────────────────────────────────
   const [clinicUsers, setClinicUsers] = useState<any[]>([])
@@ -176,6 +187,111 @@ export default function SettingsPage() {
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" })
     }
+  }
+
+  // ── Helpers de plantillas de consentimiento ───────────────────────────
+  const loadConsentTemplates = async () => {
+    if (!clinic?.id) return
+    setLoadingTemplates(true)
+    try {
+      const data = await consentTemplateService.getByClinic(clinic.id)
+      setConsentTemplates(data)
+    } catch (e: any) {
+      toast({ title: "Error al cargar plantillas", description: e.message, variant: "destructive" })
+    } finally {
+      setLoadingTemplates(false)
+    }
+  }
+
+  useEffect(() => { if (clinic?.id) loadConsentTemplates() }, [clinic?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const openTemplateDialog = (tmpl?: ConsentTemplate) => {
+    if (tmpl) {
+      setEditingTemplate(tmpl)
+      setTemplateForm({ name: tmpl.name, specialty: tmpl.specialty, content: tmpl.content })
+    } else {
+      setEditingTemplate(null)
+      setTemplateForm({ name: "", specialty: "general", content: "" })
+    }
+    setTemplateDialog(true)
+  }
+
+  const handleSaveTemplate = async () => {
+    if (!templateForm.name.trim() || !templateForm.content.trim()) {
+      toast({ title: "Nombre y contenido son requeridos", variant: "destructive" }); return
+    }
+    if (!clinic?.id) return
+    setSavingTemplate(true)
+    try {
+      if (editingTemplate) {
+        await consentTemplateService.update(editingTemplate.id, {
+          name: templateForm.name.trim(),
+          specialty: templateForm.specialty,
+          content: templateForm.content,
+        })
+      } else {
+        await consentTemplateService.create({
+          clinic_id: clinic.id,
+          name: templateForm.name.trim(),
+          specialty: templateForm.specialty,
+          content: templateForm.content,
+        })
+      }
+      toast({ title: editingTemplate ? "Plantilla actualizada" : "Plantilla creada" })
+      setTemplateDialog(false)
+      await loadConsentTemplates()
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" })
+    } finally {
+      setSavingTemplate(false)
+    }
+  }
+
+  const handleDeleteTemplate = async (tmpl: ConsentTemplate) => {
+    if (!confirm(`¿Eliminar la plantilla "${tmpl.name}"? Esta acción no se puede deshacer.`)) return
+    try {
+      await consentTemplateService.delete(tmpl.id)
+      setConsentTemplates((prev) => prev.filter((t) => t.id !== tmpl.id))
+      toast({ title: "Plantilla eliminada" })
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" })
+    }
+  }
+
+  const handleAddBuiltin = async (builtin: typeof BUILTIN_TEMPLATES[number]) => {
+    if (!clinic?.id) return
+    try {
+      await consentTemplateService.create({ clinic_id: clinic.id, ...builtin })
+      toast({ title: "Plantilla agregada", description: `"${builtin.name}" fue agregada a tus plantillas.` })
+      await loadConsentTemplates()
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" })
+    }
+  }
+
+  const handleImportTemplate = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ""
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string
+      const name = file.name.replace(/\.[^.]+$/, "")
+      setEditingTemplate(null)
+      setTemplateForm({ name, specialty: "general", content: text })
+      setTemplateDialog(true)
+    }
+    reader.readAsText(file, "utf-8")
+  }
+
+  const handleExportTemplate = (tmpl: ConsentTemplate) => {
+    const blob = new Blob([tmpl.content], { type: "text/plain;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${tmpl.name.replace(/\s+/g, "_")}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const handleNotificationMinutesChange = async (userId: string, minutes: number) => {
@@ -399,12 +515,16 @@ export default function SettingsPage() {
     }
   }
 
+  const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"]
+
   const handleSignatureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    // Reset input so the same file can be re-uploaded
+    e.target.value = ""
 
-    if (!file.type.startsWith("image/")) {
-      toast({ title: "Archivo inválido", description: "Solo se permiten imágenes.", variant: "destructive" })
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      toast({ title: "Formato no permitido", description: "Usa JPG, PNG, WebP o GIF.", variant: "destructive" })
       return
     }
 
@@ -413,8 +533,9 @@ export default function SettingsPage() {
     setUploadingSignature(false)
 
     if (error) {
-      toast({ title: "Error al subir firma", description: String(error.message || error), variant: "destructive" })
-    } else if (url) {
+      const msg = error?.message ?? String(error)
+      toast({ title: "Error al subir firma", description: msg, variant: "destructive" })
+    } else {
       toast({ title: "Firma actualizada", description: "La firma fue guardada correctamente." })
     }
   }
@@ -434,9 +555,10 @@ export default function SettingsPage() {
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    e.target.value = ""
 
-    if (!file.type.startsWith("image/")) {
-      toast({ title: "Archivo inválido", description: "Solo se permiten imágenes.", variant: "destructive" })
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      toast({ title: "Formato no permitido", description: "Usa JPG, PNG, WebP o GIF.", variant: "destructive" })
       return
     }
 
@@ -445,8 +567,9 @@ export default function SettingsPage() {
     setUploadingLogo(false)
 
     if (error) {
-      toast({ title: "Error al subir logo", description: String(error.message || error), variant: "destructive" })
-    } else if (url) {
+      const msg = error?.message ?? String(error)
+      toast({ title: "Error al subir logo", description: msg, variant: "destructive" })
+    } else {
       toast({ title: "Logo actualizado", description: "El logo de la clínica fue guardado." })
     }
   }
@@ -608,6 +731,7 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <Button
+                    type="button"
                     variant="outline"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadingLogo}
@@ -624,7 +748,7 @@ export default function SettingsPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/gif"
                 className="hidden"
                 onChange={handleLogoUpload}
               />
@@ -673,12 +797,13 @@ export default function SettingsPage() {
         </TabsContent>
 
         {/* Tab: Documentos */}
-        <TabsContent value="documentos">
+        <TabsContent value="documentos" className="space-y-4">
+          {/* Plantilla general (legacy / backward compat) */}
           <Card>
             <CardHeader>
-              <CardTitle>Consentimiento informado</CardTitle>
+              <CardTitle>Consentimiento general</CardTitle>
               <CardDescription>
-                Este texto se muestra al paciente al firmar la ficha odontológica. Se guarda una copia
+                Texto por defecto que se muestra al firmar la ficha odontológica. Se guarda una copia
                 inmutable junto a cada firma, por lo que cambios futuros no afectan firmas anteriores.
               </CardDescription>
             </CardHeader>
@@ -686,18 +811,227 @@ export default function SettingsPage() {
               <Textarea
                 value={consentTemplate}
                 onChange={(e) => setConsentTemplate(e.target.value)}
-                rows={14}
+                rows={10}
                 placeholder="Escriba el texto del consentimiento informado..."
                 className="font-mono text-sm resize-y"
               />
-              <p className="text-xs text-muted-foreground">
-                {consentTemplate.length} caracteres
-              </p>
+              <p className="text-xs text-muted-foreground">{consentTemplate.length} caracteres</p>
               <Button onClick={handleSaveConsent} disabled={savingConsent}>
                 {savingConsent ? "Guardando..." : "Guardar texto"}
               </Button>
             </CardContent>
           </Card>
+
+          {/* Plantillas adicionales por especialidad */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <CardTitle>Plantillas por especialidad</CardTitle>
+                  <CardDescription>
+                    Creá plantillas específicas para cada tratamiento o especialidad. En la ficha del
+                    paciente podrás seleccionar cuál usar antes de firmar.
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* Import from file */}
+                  <input
+                    ref={templateFileRef}
+                    type="file"
+                    accept=".txt,.md"
+                    className="hidden"
+                    onChange={handleImportTemplate}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => templateFileRef.current?.click()}
+                  >
+                    <FileUp className="h-3.5 w-3.5" />
+                    Importar .txt
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => openTemplateDialog()}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Nueva plantilla
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {/* Built-in templates */}
+              <div className="rounded-lg border border-dashed p-3 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Plantillas incluidas en el sistema</p>
+                <div className="flex flex-wrap gap-2">
+                  {BUILTIN_TEMPLATES.map((bt) => {
+                    const alreadyAdded = consentTemplates.some(
+                      (t) => t.name === bt.name && t.specialty === bt.specialty
+                    )
+                    return (
+                      <Button
+                        key={bt.name}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-xs"
+                        disabled={alreadyAdded}
+                        onClick={() => handleAddBuiltin(bt)}
+                      >
+                        <Plus className="h-3 w-3" />
+                        {bt.name}
+                        {alreadyAdded && <span className="text-muted-foreground">(ya agregada)</span>}
+                      </Button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Template list */}
+              {loadingTemplates ? (
+                <p className="text-sm text-muted-foreground py-2">Cargando plantillas...</p>
+              ) : consentTemplates.length === 0 ? (
+                <div className="rounded-lg border bg-muted/20 p-6 text-center text-sm text-muted-foreground">
+                  <FileSignature className="h-8 w-8 mx-auto mb-2 opacity-40" />
+                  <p>No hay plantillas aún. Creá una nueva o importá desde archivo.</p>
+                </div>
+              ) : (
+                <div className="divide-y rounded-lg border overflow-hidden">
+                  {consentTemplates.map((tmpl) => (
+                    <div key={tmpl.id} className="bg-card">
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="font-medium text-sm truncate">{tmpl.name}</span>
+                            <Badge variant="secondary" className="text-xs shrink-0">
+                              {SPECIALTY_LABELS[tmpl.specialty] ?? tmpl.specialty}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {tmpl.content.length} caracteres
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            title="Ver / ocultar contenido"
+                            onClick={() => setExpandedTemplate(expandedTemplate === tmpl.id ? null : tmpl.id)}
+                          >
+                            {expandedTemplate === tmpl.id
+                              ? <ChevronUp className="h-3.5 w-3.5" />
+                              : <ChevronDown className="h-3.5 w-3.5" />
+                            }
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            title="Exportar como .txt"
+                            onClick={() => handleExportTemplate(tmpl)}
+                          >
+                            <FileDown className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            title="Editar"
+                            onClick={() => openTemplateDialog(tmpl)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            title="Eliminar"
+                            onClick={() => handleDeleteTemplate(tmpl)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                      {expandedTemplate === tmpl.id && (
+                        <div className="px-4 pb-4">
+                          <pre className="whitespace-pre-wrap text-xs text-muted-foreground bg-muted/30 rounded-md p-3 max-h-64 overflow-y-auto font-mono leading-relaxed">
+                            {tmpl.content}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Dialog nueva / editar plantilla */}
+          <Dialog open={templateDialog} onOpenChange={setTemplateDialog}>
+            <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+              <DialogHeader>
+                <DialogTitle>{editingTemplate ? "Editar plantilla" : "Nueva plantilla de consentimiento"}</DialogTitle>
+                <DialogDescription>
+                  El texto se guardará tal cual. Podés usar guiones bajos como espacio en blanco para campos a completar a mano.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="flex-1 overflow-y-auto space-y-4 py-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>Nombre de la plantilla *</Label>
+                    <Input
+                      value={templateForm.name}
+                      onChange={(e) => setTemplateForm((p) => ({ ...p, name: e.target.value }))}
+                      placeholder="Ej: Toxina Botulínica"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Especialidad</Label>
+                    <Select
+                      value={templateForm.specialty}
+                      onValueChange={(v) => setTemplateForm((p) => ({ ...p, specialty: v }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(SPECIALTY_LABELS).map(([val, label]) => (
+                          <SelectItem key={val} value={val}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Texto del consentimiento *</Label>
+                  <Textarea
+                    value={templateForm.content}
+                    onChange={(e) => setTemplateForm((p) => ({ ...p, content: e.target.value }))}
+                    rows={16}
+                    placeholder="Escribí o pegá el texto del consentimiento..."
+                    className="font-mono text-sm resize-y"
+                  />
+                  <p className="text-xs text-muted-foreground">{templateForm.content.length} caracteres</p>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setTemplateDialog(false)}>Cancelar</Button>
+                <Button type="button" onClick={handleSaveTemplate} disabled={savingTemplate}>
+                  {savingTemplate ? "Guardando..." : editingTemplate ? "Actualizar" : "Crear plantilla"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* Tab: Profesional */}
@@ -805,6 +1139,7 @@ export default function SettingsPage() {
                 <Label>Subir imagen de firma</Label>
                 <div className="flex items-center gap-3">
                   <Button
+                    type="button"
                     variant="outline"
                     onClick={() => signatureInputRef.current?.click()}
                     disabled={uploadingSignature}
@@ -818,7 +1153,7 @@ export default function SettingsPage() {
                 <input
                   ref={signatureInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
                   className="hidden"
                   onChange={handleSignatureUpload}
                 />

@@ -101,6 +101,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         logo_url: null,
         primary_color: DEFAULT_COLOR,
         currency: "PYG",
+        tax_rate: 10,
         consent_template: null,
         doctor_name: null,
         specialty: null,
@@ -160,21 +161,26 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
     if (!clinic) return { url: null, error: new Error("No clinic loaded") }
 
     try {
-      const ext = file.name.split(".").pop()
+      // Determinar extensión por tipo MIME para evitar problemas con nombres sin extensión
+      const mimeToExt: Record<string, string> = {
+        "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
+      }
+      const ext = mimeToExt[file.type] ?? file.name.split(".").pop() ?? "png"
       const path = `${clinic.id}/logo.${ext}`
 
       const { error: uploadError } = await supabase.storage
         .from("clinic-assets")
-        .upload(path, file, { upsert: true })
+        .upload(path, file, { upsert: true, contentType: file.type })
 
       if (uploadError) return { url: null, error: uploadError }
 
       const { data } = supabase.storage.from("clinic-assets").getPublicUrl(path)
-      // Agregar timestamp para romper caché del navegador en cada actualización
       const url = `${data.publicUrl}?t=${Date.now()}`
 
-      const { error: updateError } = await updateClinic({ logo_url: url })
-      if (updateError) return { url: null, error: updateError }
+      // Actualizar estado local de inmediato para que el UI refleje el cambio
+      setClinic((prev) => prev ? { ...prev, logo_url: url } : prev)
+      // Persistir en DB (no bloquea el retorno del URL)
+      updateClinic({ logo_url: url }).catch((e) => console.error("Logo DB update failed:", e))
 
       return { url, error: null }
     } catch (err) {
@@ -186,21 +192,30 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
     if (!clinic) return { url: null, error: new Error("No clinic loaded") }
 
     try {
-      const ext = file.name.split(".").pop()
+      const mimeToExt: Record<string, string> = {
+        "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
+      }
+      const ext = mimeToExt[file.type] ?? file.name.split(".").pop() ?? "png"
       const path = `${clinic.id}/signature.${ext}`
 
       const { error: uploadError } = await supabase.storage
         .from("clinic-assets")
-        .upload(path, file, { upsert: true })
+        .upload(path, file, { upsert: true, contentType: file.type })
 
       if (uploadError) return { url: null, error: uploadError }
 
       const { data } = supabase.storage.from("clinic-assets").getPublicUrl(path)
-      // Agregar timestamp para romper caché del navegador en cada actualización
       const url = `${data.publicUrl}?t=${Date.now()}`
 
+      // Actualizar estado local de inmediato
+      setClinic((prev) => prev ? { ...prev, signature_url: url } : prev)
+      // Persistir en DB
       const { error: updateError } = await updateClinic({ signature_url: url })
-      if (updateError) return { url: null, error: updateError }
+      if (updateError) {
+        console.error("Signature DB update failed:", updateError)
+        // Devolver la URL igual — la imagen subió correctamente
+        return { url, error: null }
+      }
 
       return { url, error: null }
     } catch (err) {
