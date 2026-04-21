@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import Image from "next/image"
 import { patientFilesService, FILE_TYPE_LABELS, type FileType } from "@/services/patient-files"
 import { useClinic } from "@/context/clinic-context"
 import { useAuth } from "@/context/auth-context"
@@ -32,6 +31,7 @@ interface FileCardProps {
 
 function FileCard({ file, onDelete, onPreview }: FileCardProps) {
   const [deleting, setDeleting] = useState(false)
+  const [imgError, setImgError] = useState(false)
   const { toast } = useToast()
 
   const handleDelete = async () => {
@@ -54,8 +54,14 @@ function FileCard({ file, onDelete, onPreview }: FileCardProps) {
         className="relative h-36 bg-muted cursor-pointer"
         onClick={() => onPreview(file)}
       >
-        {isImage(file.file_url) ? (
-          <Image src={file.file_url} alt={file.file_name} fill className="object-cover" />
+        {isImage(file.file_url) && !imgError ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={file.file_url}
+            alt={file.file_name}
+            className="absolute inset-0 h-full w-full object-cover"
+            onError={() => setImgError(true)}
+          />
         ) : (
           <div className="flex h-full items-center justify-center">
             <FileText className="h-10 w-10 text-muted-foreground" />
@@ -229,7 +235,8 @@ function PreviewDialog({ file, onClose }: PreviewDialogProps) {
         </DialogHeader>
         {isImage(file.file_url) ? (
           <div className="relative h-[60vh]">
-            <Image src={file.file_url} alt={file.file_name} fill className="object-contain rounded-md" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={file.file_url} alt={file.file_name} className="h-full w-full object-contain rounded-md" />
           </div>
         ) : (
           <iframe src={file.file_url} className="h-[60vh] w-full rounded-md border" title={file.file_name} />

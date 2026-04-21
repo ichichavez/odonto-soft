@@ -18,6 +18,7 @@ import type {
   ExtraOralExam, IntraOralExam, Habits, MedicalHistory,
   DentalHistory, FeedingHistory, DietRecord,
 } from "@/types/dental"
+import { PerioForm, type PerioData, defaultPerio } from "@/components/dental-record/perio-form"
 
 // ─── Public types ───────────────────────────────────────────────────────────
 
@@ -85,7 +86,7 @@ export interface DentalFormData {
   medicalHistory: MedicalHistory
   dentalHistory: DentalHistory
   treatmentsDone: { date: string; tooth: string; description: string }[]
-  specialtyNotes: { ortodoncia: string; armonizacion: ArmonizacionData; perio: string }
+  specialtyNotes: { ortodoncia: string; armonizacion: ArmonizacionData; perio: PerioData }
 }
 
 export interface DentalRecordFormHandle {
@@ -192,7 +193,7 @@ const defaultArmonizacion = (): ArmonizacionData => ({
 const defaultSpecialtyNotes = () => ({
   ortodoncia: "",
   armonizacion: defaultArmonizacion(),
-  perio: "",
+  perio: defaultPerio(),
 })
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -269,9 +270,11 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
     const [ortodoncia, setOrtodoncia] = useState<string>(
       typeof d?.specialtyNotes?.ortodoncia === "string" ? d.specialtyNotes.ortodoncia : ""
     )
-    const [perio, setPerio] = useState<string>(
-      typeof d?.specialtyNotes?.perio === "string" ? d.specialtyNotes.perio : ""
-    )
+    const [perio, setPerio] = useState<PerioData>(() => {
+      const saved = d?.specialtyNotes?.perio
+      if (saved && typeof saved === "object") return { ...defaultPerio(), ...(saved as any) }
+      return defaultPerio()
+    })
     const [armonizacion, setArmonizacion] = useState<ArmonizacionData>(() => {
       const saved = d?.specialtyNotes?.armonizacion
       if (saved && typeof saved === "object") return { ...defaultArmonizacion(), ...(saved as any) }
@@ -1120,15 +1123,7 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
 
           {/* ── PERIODONCIA ── */}
           <TabsContent value="perio" className="space-y-4">
-            <FormSection title="Notas de Periodoncia">
-              <Textarea
-                value={perio}
-                onChange={(e) => setPerio(e.target.value)}
-                placeholder="Diagnóstico periodontal, profundidad de bolsas, movilidad dentaria, plan de tratamiento, evolución..."
-                rows={10}
-                className="resize-y"
-              />
-            </FormSection>
+            <PerioForm value={perio} onChange={setPerio} />
           </TabsContent>
 
           {/* ── ALIMENTACIÓN (niño) ── */}

@@ -59,11 +59,15 @@ export default function OdontogramaPage() {
       if (patient) setPatientName(`${patient.first_name} ${patient.last_name}`)
 
       // Odontograma existente
-      const { data: existing } = await supabase
+      const { data: existing, error: loadError } = await (supabase as any)
         .from("odontograms")
         .select("id, data, notes")
         .eq("patient_id", params.id)
         .maybeSingle()
+
+      if (loadError) {
+        console.error("[odontograma] Error al cargar:", loadError.message)
+      }
 
       if (existing) {
         setOdontogramId(existing.id)
@@ -96,9 +100,9 @@ export default function OdontogramaPage() {
 
     let error
     if (odontogramId) {
-      ;({ error } = await supabase.from("odontograms").update(payload).eq("id", odontogramId))
+      ;({ error } = await (supabase as any).from("odontograms").update(payload).eq("id", odontogramId))
     } else {
-      const { data: inserted, error: e } = await supabase
+      const { data: inserted, error: e } = await (supabase as any)
         .from("odontograms")
         .insert(payload)
         .select("id")
