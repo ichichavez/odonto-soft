@@ -1259,6 +1259,7 @@ export default function SettingsPage() {
                                 <SelectItem value="30">30 min</SelectItem>
                                 <SelectItem value="45">45 min</SelectItem>
                                 <SelectItem value="60">60 min</SelectItem>
+                                <SelectItem value="1440">24 horas</SelectItem>
                               </SelectContent>
                             </Select>
                           </td>

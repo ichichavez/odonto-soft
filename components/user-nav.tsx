@@ -71,11 +71,13 @@ export function UserNav() {
     setNotifOpen(true)
   }
 
+  const formatMinutes = (min: number) => min >= 1440 ? "24 horas" : `${min} minutos`
+
   const handleSaveNotifMinutes = async () => {
     setSaving(true)
     try {
       await updateNotificationMinutes(Number(selectedMinutes))
-      toast({ title: "Preferencia guardada", description: `Recibirás avisos ${selectedMinutes} minutos antes de cada cita.` })
+      toast({ title: "Preferencia guardada", description: `Recibirás avisos ${formatMinutes(Number(selectedMinutes))} antes de cada cita.` })
       setNotifOpen(false)
     } catch {
       toast({ title: "Error al guardar", variant: "destructive" })
@@ -122,7 +124,7 @@ export function UserNav() {
               <Bell className="mr-2 h-4 w-4" />
               <span>Aviso de citas</span>
               <span className="ml-auto text-xs text-muted-foreground">
-                {user?.notification_before_minutes ?? 30} min
+                {(user?.notification_before_minutes ?? 30) >= 1440 ? "24 h" : `${user?.notification_before_minutes ?? 30} min`}
               </span>
             </DropdownMenuItem>
           </DropdownMenuGroup>
@@ -156,6 +158,7 @@ export function UserNav() {
                 <SelectItem value="30">30 minutos antes</SelectItem>
                 <SelectItem value="45">45 minutos antes</SelectItem>
                 <SelectItem value="60">60 minutos antes</SelectItem>
+                <SelectItem value="1440">24 horas antes</SelectItem>
               </SelectContent>
             </Select>
           </div>

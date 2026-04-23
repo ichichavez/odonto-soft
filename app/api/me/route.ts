@@ -16,9 +16,9 @@ export async function PATCH(request: Request) {
 
   if (notification_before_minutes !== undefined) {
     const minutes = Number(notification_before_minutes)
-    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 120) {
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440) {
       return NextResponse.json(
-        { error: "notification_before_minutes debe ser un entero entre 1 y 120" },
+        { error: "notification_before_minutes debe ser un entero entre 1 y 1440" },
         { status: 400 }
       )
     }

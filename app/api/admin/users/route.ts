@@ -125,9 +125,9 @@ export async function PATCH(request: Request) {
   // Validar notification_before_minutes si se proporciona
   if (notification_before_minutes !== undefined) {
     const mins = Number(notification_before_minutes)
-    if (!Number.isInteger(mins) || mins < 1 || mins > 120) {
+    if (!Number.isInteger(mins) || mins < 1 || mins > 1440) {
       return NextResponse.json(
-        { error: "notification_before_minutes debe ser entre 1 y 120" },
+        { error: "notification_before_minutes debe ser entre 1 y 1440" },
         { status: 400 }
       )
     }
