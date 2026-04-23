@@ -35,6 +35,8 @@ const emptyPatient = {
   birth_date: "",
   gender: "",
   address: "",
+  barrio: "",
+  ciudad: "",
   patient_type: "adulto" as PatientType,
   marital_status: "",
   profession: "",
@@ -229,6 +231,17 @@ export default function NuevoPacientePage() {
                 <div className="space-y-2">
                   <Label htmlFor="address">Dirección de Domicilio</Label>
                   <Input id="address" placeholder="Dirección completa" value={patientData.address} onChange={handleChange} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="barrio">Barrio</Label>
+                    <Input id="barrio" placeholder="Barrio" value={(patientData as any).barrio} onChange={handleChange} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ciudad">Ciudad</Label>
+                    <Input id="ciudad" placeholder="Ciudad" value={(patientData as any).ciudad} onChange={handleChange} />
+                  </div>
                 </div>
 
                 {/* Adulto */}

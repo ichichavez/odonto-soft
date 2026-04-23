@@ -21,7 +21,7 @@ export type PerioTeeth = Record<string, PerioToothData>
 
 export interface PerioData {
   // Ficha
-  fecha: string; fase: string; estudiante: string; num_ficha: string
+  fecha: string; fase: string; num_ficha: string
   // Clínica
   motivo: string; habitos: string; fuma: string; fuma_cant: string
   enf_sistemicas: string; medicacion: string
@@ -81,7 +81,7 @@ const emptyTeeth = (list: number[]): PerioTeeth =>
 
 export function defaultPerio(): PerioData {
   return {
-    fecha: new Date().toISOString().slice(0, 10), fase: "", estudiante: "", num_ficha: "",
+    fecha: new Date().toISOString().slice(0, 10), fase: "", num_ficha: "",
     motivo: "", habitos: "", fuma: "", fuma_cant: "", enf_sistemicas: "", medicacion: "",
     sellado_labial: "", asimetria_facial: "", apertura_bucal: "",
     sonrisa_gingival: "", sonrisa_dental: "", desv_linea_media: "",
@@ -334,15 +334,12 @@ export function PerioForm({ value: v, onChange }: PerioFormProps) {
       {/* ── 1. Datos de la ficha ── */}
       <div>
         <SectionTitle>Datos de la ficha</SectionTitle>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <Field label="Fecha">
             <Input type="date" value={v.fecha} onChange={e => set("fecha", e.target.value)} className="h-8 text-sm" />
           </Field>
           <Field label="Fase">
             <TxtInput value={v.fase} onChange={val => set("fase", val)} placeholder="Ej: Inicial" />
-          </Field>
-          <Field label="Estudiante">
-            <TxtInput value={v.estudiante} onChange={val => set("estudiante", val)} />
           </Field>
           <Field label="N° Ficha">
             <TxtInput value={v.num_ficha} onChange={val => set("num_ficha", val)} />

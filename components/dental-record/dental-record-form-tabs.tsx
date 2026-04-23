@@ -19,6 +19,7 @@ import type {
   DentalHistory, FeedingHistory, DietRecord,
 } from "@/types/dental"
 import { PerioForm, type PerioData, defaultPerio } from "@/components/dental-record/perio-form"
+import { OrtodonciaForm, type OrtodonciaData, defaultOrtodoncia } from "@/components/dental-record/ortodoncia-form"
 
 // ─── Public types ───────────────────────────────────────────────────────────
 
@@ -86,7 +87,7 @@ export interface DentalFormData {
   medicalHistory: MedicalHistory
   dentalHistory: DentalHistory
   treatmentsDone: { date: string; tooth: string; description: string }[]
-  specialtyNotes: { ortodoncia: string; armonizacion: ArmonizacionData; perio: PerioData }
+  specialtyNotes: { ortodoncia: OrtodonciaData; armonizacion: ArmonizacionData; perio: PerioData }
 }
 
 export interface DentalRecordFormHandle {
@@ -191,7 +192,7 @@ const defaultArmonizacion = (): ArmonizacionData => ({
 })
 
 const defaultSpecialtyNotes = () => ({
-  ortodoncia: "",
+  ortodoncia: defaultOrtodoncia(),
   armonizacion: defaultArmonizacion(),
   perio: defaultPerio(),
 })
@@ -267,9 +268,11 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
     const [treatmentsDone, setTreatmentsDone] = useState<{ date: string; tooth: string; description: string }[]>(d?.treatmentsDone ?? [])
 
     // Specialty notes
-    const [ortodoncia, setOrtodoncia] = useState<string>(
-      typeof d?.specialtyNotes?.ortodoncia === "string" ? d.specialtyNotes.ortodoncia : ""
-    )
+    const [ortodoncia, setOrtodoncia] = useState<OrtodonciaData>(() => {
+      const saved = d?.specialtyNotes?.ortodoncia
+      if (saved && typeof saved === "object") return { ...defaultOrtodoncia(), ...(saved as any) }
+      return defaultOrtodoncia()
+    })
     const [perio, setPerio] = useState<PerioData>(() => {
       const saved = d?.specialtyNotes?.perio
       if (saved && typeof saved === "object") return { ...defaultPerio(), ...(saved as any) }
@@ -868,15 +871,7 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
 
           {/* ── ORTODONCIA ── */}
           <TabsContent value="ortodoncia" className="space-y-4">
-            <FormSection title="Notas de Ortodoncia">
-              <Textarea
-                value={ortodoncia}
-                onChange={(e) => setOrtodoncia(e.target.value)}
-                placeholder="Observaciones, diagnóstico y plan de tratamiento ortodóntico, evolución, tipo de aparatología..."
-                rows={10}
-                className="resize-y"
-              />
-            </FormSection>
+            <OrtodonciaForm value={ortodoncia} onChange={setOrtodoncia} />
           </TabsContent>
 
           {/* ── ARMONIZACIÓN OROFACIAL ── */}
