@@ -46,6 +46,8 @@ export type ClinicRow = {
   created_at: string
   plan: string
   sub_status: string
+  billing_type: string   // 'automatic' | 'manual'
+  expires_at: string | null
   user_count: number
 }
 
@@ -56,9 +58,27 @@ export async function fetchClinics(): Promise<ClinicRow[]> {
   return res.json()
 }
 
+export async function createClinic(data: {
+  clinicName: string
+  adminName: string
+  adminEmail: string
+  adminPassword: string
+  plan: string
+  expiresAt?: string
+}): Promise<{ clinic_id: string; user_id: string }> {
+  const headers = await getAuthHeader()
+  const res = await fetch("/api/superadmin/clinics", {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error(await res.text())
+  return res.json()
+}
+
 export async function updateClinic(
   clinicId: string,
-  updates: { status?: string; plan?: string }
+  updates: { status?: string; plan?: string; billing_type?: string; expiresAt?: string }
 ) {
   const headers = await getAuthHeader()
   const res = await fetch("/api/superadmin/clinics", {

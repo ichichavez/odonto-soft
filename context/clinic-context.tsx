@@ -19,6 +19,7 @@ export type Clinic = {
   signature_url: string | null
   address: string | null
   phone: string | null
+  status: string
   created_at: string | null
   updated_at: string | null
 }
@@ -70,6 +71,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
           signature_url: data.signature_url ?? null,
           address: data.address ?? null,
           phone: data.phone ?? null,
+          status: data.status ?? "active",
         })
       } else {
         // La fila no existe todavía — usar valores por defecto en memoria
@@ -88,6 +90,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
           signature_url: null,
           address: null,
           phone: null,
+          status: "active",
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
@@ -109,6 +112,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         signature_url: null,
         address: null,
         phone: null,
+        status: "active",
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -150,7 +154,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
 
       if (error) return { error }
 
-      setClinic({ ...clinic, ...data })
+      setClinic({ ...clinic, ...(data as any), status: (data as any).status ?? clinic.status })
       return { error: null }
     } catch (err) {
       return { error: err }

@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { AlertCircle, RefreshCw } from "lucide-react"
-import { fetchClinics, updateClinic, type ClinicRow } from "@/services/superadmin"
+import { AlertCircle, RefreshCw, Plus, CalendarDays } from "lucide-react"
+import { fetchClinics, createClinic, updateClinic, type ClinicRow } from "@/services/superadmin"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -12,6 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { useToast } from "@/hooks/use-toast"
@@ -34,6 +43,15 @@ const PLAN_COLORS: Record<string, string> = {
   enterprise: "#6366f1",
 }
 
+const EMPTY_FORM = {
+  clinicName: "",
+  adminName: "",
+  adminEmail: "",
+  adminPassword: "",
+  plan: "pro",
+  expiresAt: "",
+}
+
 export default function ClinicsPage() {
   const [clinics, setClinics] = useState<ClinicRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -42,6 +60,16 @@ export default function ClinicsPage() {
   const [filterPlan, setFilterPlan] = useState("all")
   const [updating, setUpdating] = useState<string | null>(null)
   const { toast } = useToast()
+
+  // New clinic dialog
+  const [newDialogOpen, setNewDialogOpen] = useState(false)
+  const [newForm, setNewForm] = useState(EMPTY_FORM)
+  const [creating, setCreating] = useState(false)
+
+  // Extend dialog
+  const [extendDialog, setExtendDialog] = useState<{ clinicId: string; current: string | null } | null>(null)
+  const [newExpiresAt, setNewExpiresAt] = useState("")
+  const [extending, setExtending] = useState(false)
 
   const load = () => {
     setLoading(true)
@@ -85,6 +113,59 @@ export default function ClinicsPage() {
     }
   }
 
+  const handleCreate = async () => {
+    if (!newForm.clinicName || !newForm.adminName || !newForm.adminEmail || !newForm.adminPassword) {
+      toast({ title: "Completá todos los campos requeridos", variant: "destructive" })
+      return
+    }
+    setCreating(true)
+    try {
+      const result = await createClinic({
+        clinicName: newForm.clinicName,
+        adminName: newForm.adminName,
+        adminEmail: newForm.adminEmail,
+        adminPassword: newForm.adminPassword,
+        plan: newForm.plan,
+        expiresAt: newForm.expiresAt || undefined,
+      })
+      toast({ title: "Clínica creada exitosamente" })
+      setNewDialogOpen(false)
+      setNewForm(EMPTY_FORM)
+      // Add optimistic row then refresh
+      load()
+    } catch (e: any) {
+      toast({ title: "Error al crear clínica", description: e.message, variant: "destructive" })
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const openExtendDialog = (clinic: ClinicRow) => {
+    setExtendDialog({ clinicId: clinic.id, current: clinic.expires_at })
+    setNewExpiresAt(clinic.expires_at ? clinic.expires_at.slice(0, 10) : "")
+  }
+
+  const handleExtend = async () => {
+    if (!extendDialog || !newExpiresAt) return
+    setExtending(true)
+    try {
+      await updateClinic(extendDialog.clinicId, { expiresAt: new Date(newExpiresAt).toISOString() })
+      setClinics((prev) =>
+        prev.map((c) =>
+          c.id === extendDialog.clinicId
+            ? { ...c, expires_at: new Date(newExpiresAt).toISOString() }
+            : c
+        )
+      )
+      toast({ title: "Fecha extendida" })
+      setExtendDialog(null)
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" })
+    } finally {
+      setExtending(false)
+    }
+  }
+
   const filtered = clinics.filter((c) => {
     if (filterStatus !== "all" && c.status !== filterStatus) return false
     if (filterPlan !== "all" && c.plan !== filterPlan) return false
@@ -98,16 +179,26 @@ export default function ClinicsPage() {
           <h1 className="text-2xl font-bold">Clínicas</h1>
           <p className="text-slate-400 text-sm mt-1">{clinics.length} clínicas registradas</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={load}
-          disabled={loading}
-          className="border-slate-600 text-slate-300 hover:bg-slate-700"
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-          Actualizar
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            onClick={() => setNewDialogOpen(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo cliente
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={load}
+            disabled={loading}
+            className="border-slate-600 text-slate-300 hover:bg-slate-700"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+            Actualizar
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -153,6 +244,8 @@ export default function ClinicsPage() {
                 <th className="px-5 py-3.5 font-medium">Clínica</th>
                 <th className="px-5 py-3.5 font-medium">Plan</th>
                 <th className="px-5 py-3.5 font-medium">Estado</th>
+                <th className="px-5 py-3.5 font-medium">Facturación</th>
+                <th className="px-5 py-3.5 font-medium">Vence</th>
                 <th className="px-5 py-3.5 font-medium">Usuarios</th>
                 <th className="px-5 py-3.5 font-medium">Registrada</th>
                 <th className="px-5 py-3.5 font-medium">Acciones</th>
@@ -161,7 +254,7 @@ export default function ClinicsPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
+                  <td colSpan={8} className="py-12 text-center text-slate-500">
                     <div className="flex justify-center">
                       <div className="h-6 w-6 animate-spin rounded-full border-4 border-emerald-500 border-t-transparent" />
                     </div>
@@ -169,7 +262,7 @@ export default function ClinicsPage() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
+                  <td colSpan={8} className="py-12 text-center text-slate-500">
                     No hay clínicas con los filtros seleccionados
                   </td>
                 </tr>
@@ -204,6 +297,16 @@ export default function ClinicsPage() {
                         {STATUS_LABEL[c.status] ?? c.status}
                       </Badge>
                     </td>
+                    <td className="px-5 py-3.5">
+                      <Badge variant={c.billing_type === "manual" ? "outline" : "secondary"}>
+                        {c.billing_type === "manual" ? "Manual" : "Automático"}
+                      </Badge>
+                    </td>
+                    <td className="px-5 py-3.5 text-slate-400 text-xs">
+                      {c.expires_at
+                        ? format(new Date(c.expires_at), "dd MMM yyyy", { locale: es })
+                        : "—"}
+                    </td>
                     <td className="px-5 py-3.5 text-slate-300">{c.user_count}</td>
                     <td className="px-5 py-3.5 text-slate-400">
                       {c.created_at
@@ -211,15 +314,29 @@ export default function ClinicsPage() {
                         : "—"}
                     </td>
                     <td className="px-5 py-3.5">
-                      <Button
-                        size="sm"
-                        variant={c.status === "active" ? "destructive" : "default"}
-                        className="h-7 text-xs"
-                        onClick={() => handleStatusToggle(c)}
-                        disabled={updating === c.id}
-                      >
-                        {c.status === "active" ? "Suspender" : "Activar"}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant={c.status === "active" ? "destructive" : "default"}
+                          className="h-7 text-xs"
+                          onClick={() => handleStatusToggle(c)}
+                          disabled={updating === c.id}
+                        >
+                          {c.status === "active" ? "Suspender" : "Activar"}
+                        </Button>
+                        {c.billing_type === "manual" && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs border-slate-600 text-slate-300 hover:bg-slate-700"
+                            onClick={() => openExtendDialog(c)}
+                            disabled={updating === c.id}
+                          >
+                            <CalendarDays className="h-3 w-3 mr-1" />
+                            Extender
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -228,6 +345,131 @@ export default function ClinicsPage() {
           </table>
         </div>
       </div>
+
+      {/* New clinic dialog */}
+      <Dialog open={newDialogOpen} onOpenChange={setNewDialogOpen}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-slate-100 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nuevo cliente (manual)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-slate-300">Nombre de la clínica *</Label>
+              <Input
+                className="bg-slate-700 border-slate-600 text-slate-100 placeholder:text-slate-500"
+                placeholder="Clínica Dental X"
+                value={newForm.clinicName}
+                onChange={(e) => setNewForm({ ...newForm, clinicName: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-slate-300">Nombre del admin *</Label>
+              <Input
+                className="bg-slate-700 border-slate-600 text-slate-100 placeholder:text-slate-500"
+                placeholder="Dr. Juan García"
+                value={newForm.adminName}
+                onChange={(e) => setNewForm({ ...newForm, adminName: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-slate-300">Email del admin *</Label>
+              <Input
+                type="email"
+                className="bg-slate-700 border-slate-600 text-slate-100 placeholder:text-slate-500"
+                placeholder="admin@clinica.com"
+                value={newForm.adminEmail}
+                onChange={(e) => setNewForm({ ...newForm, adminEmail: e.target.value })}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-slate-300">Contraseña *</Label>
+              <Input
+                type="password"
+                className="bg-slate-700 border-slate-600 text-slate-100 placeholder:text-slate-500"
+                placeholder="Mínimo 8 caracteres"
+                value={newForm.adminPassword}
+                onChange={(e) => setNewForm({ ...newForm, adminPassword: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-slate-300">Plan</Label>
+                <Select value={newForm.plan} onValueChange={(v) => setNewForm({ ...newForm, plan: v })}>
+                  <SelectTrigger className="bg-slate-700 border-slate-600 text-slate-100">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-slate-800 border-slate-600">
+                    <SelectItem value="free" className="text-slate-300">Free</SelectItem>
+                    <SelectItem value="pro" className="text-slate-300">Pro</SelectItem>
+                    <SelectItem value="enterprise" className="text-slate-300">Enterprise</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-slate-300">Fecha vencimiento</Label>
+                <Input
+                  type="date"
+                  className="bg-slate-700 border-slate-600 text-slate-100"
+                  value={newForm.expiresAt}
+                  onChange={(e) => setNewForm({ ...newForm, expiresAt: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="border-slate-600 text-slate-300 hover:bg-slate-700"
+              onClick={() => { setNewDialogOpen(false); setNewForm(EMPTY_FORM) }}
+              disabled={creating}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={handleCreate}
+              disabled={creating}
+            >
+              {creating ? "Creando…" : "Crear clínica"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Extend expiry dialog */}
+      <Dialog open={!!extendDialog} onOpenChange={(open) => { if (!open) setExtendDialog(null) }}>
+        <DialogContent className="bg-slate-800 border-slate-700 text-slate-100 sm:max-w-xs">
+          <DialogHeader>
+            <DialogTitle>Extender vencimiento</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-1.5">
+            <Label className="text-slate-300">Nueva fecha de vencimiento</Label>
+            <Input
+              type="date"
+              className="bg-slate-700 border-slate-600 text-slate-100"
+              value={newExpiresAt}
+              onChange={(e) => setNewExpiresAt(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="border-slate-600 text-slate-300 hover:bg-slate-700"
+              onClick={() => setExtendDialog(null)}
+              disabled={extending}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={handleExtend}
+              disabled={extending || !newExpiresAt}
+            >
+              {extending ? "Guardando…" : "Guardar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
