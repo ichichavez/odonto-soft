@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   const supabase = createServerClient()
   const { data, error } = await supabase
     .from("users")
-    .select("id, name, email, role, branch_id, notification_before_minutes, created_at")
+    .select("id, name, email, role, branch_id, reminder_minutes, created_at")
     .eq("clinic_id", profile.clinic_id)
     .order("created_at", { ascending: true })
 
@@ -108,7 +108,7 @@ export async function PATCH(request: Request) {
   }
 
   const body = await request.json()
-  const { userId, role, branch_id, notification_before_minutes } = body
+  const { userId, role, branch_id, reminder_minutes } = body
 
   if (!userId) {
     return NextResponse.json({ error: "userId es requerido" }, { status: 400 })
@@ -122,14 +122,18 @@ export async function PATCH(request: Request) {
     }
   }
 
-  // Validar notification_before_minutes si se proporciona
-  if (notification_before_minutes !== undefined) {
-    const mins = Number(notification_before_minutes)
-    if (!Number.isInteger(mins) || mins < 1 || mins > 1440) {
-      return NextResponse.json(
-        { error: "notification_before_minutes debe ser entre 1 y 1440" },
-        { status: 400 }
-      )
+  // Validar reminder_minutes si se proporciona
+  if (reminder_minutes !== undefined) {
+    if (!Array.isArray(reminder_minutes)) {
+      return NextResponse.json({ error: "reminder_minutes debe ser un array" }, { status: 400 })
+    }
+    for (const m of reminder_minutes) {
+      if (!Number.isInteger(m) || m < 1 || m > 1440) {
+        return NextResponse.json(
+          { error: "Cada valor de reminder_minutes debe ser entre 1 y 1440" },
+          { status: 400 }
+        )
+      }
     }
   }
 
@@ -154,7 +158,7 @@ export async function PATCH(request: Request) {
   const updates: Record<string, unknown> = {}
   if (role !== undefined) updates.role = role
   if (branch_id !== undefined) updates.branch_id = branch_id
-  if (notification_before_minutes !== undefined) updates.notification_before_minutes = notification_before_minutes
+  if (reminder_minutes !== undefined) updates.reminder_minutes = reminder_minutes
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "Nada que actualizar" }, { status: 400 })

@@ -97,7 +97,7 @@ export const appointmentService = {
         .from(tableName as any)
         .select(`
           *,
-          patients (id, first_name, last_name),
+          patients (id, first_name, last_name, phone),
           users (id, name),
           treatments (id, name, price)
         `)

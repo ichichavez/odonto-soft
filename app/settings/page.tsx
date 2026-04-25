@@ -17,10 +17,83 @@ import { SmileIcon as Tooth, Upload, Palette, Building2, Users, FileSignature, S
 import Image from "next/image"
 import { hexToHsl, getContrastColor } from "@/lib/color-utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { CURRENCIES } from "@/lib/currency"
 import { SignaturePad } from "@/components/signature-pad"
 import { createBrowserClient } from "@/lib/supabase"
 import { consentTemplateService, type ConsentTemplate, BUILTIN_TEMPLATES, SPECIALTY_LABELS } from "@/services/consent-templates"
+
+// ─── Reminder helpers ─────────────────────────────────────────────────────────
+
+const REMINDER_OPTIONS = [
+  { value: 1440, label: "24 horas antes" },
+  { value: 120,  label: "2 horas antes" },
+  { value: 60,   label: "1 hora antes" },
+  { value: 45,   label: "45 minutos antes" },
+  { value: 30,   label: "30 minutos antes" },
+  { value: 15,   label: "15 minutos antes" },
+  { value: 10,   label: "10 minutos antes" },
+]
+
+function formatMin(min: number): string {
+  if (min >= 1440) return "24 h"
+  if (min >= 60) return `${min / 60} h`
+  return `${min} min`
+}
+
+function summaryLabel(minutes: number[]): string {
+  if (!minutes.length) return "ninguno"
+  return [...minutes].sort((a, b) => b - a).map(formatMin).join(" · ")
+}
+
+// ─── Reminder multi-select cell ───────────────────────────────────────────────
+
+function ReminderCell({
+  userId,
+  reminderMinutes,
+  onChange,
+}: {
+  userId: string
+  reminderMinutes: number[]
+  onChange: (userId: string, minutes: number[]) => void
+}) {
+  const current = reminderMinutes.length ? reminderMinutes : [30]
+
+  const toggle = (value: number) => {
+    const next = current.includes(value)
+      ? current.filter(v => v !== value)
+      : [...current, value]
+    if (next.length === 0) return // require at least one
+    onChange(userId, next)
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm" className="h-8 text-xs font-normal max-w-[160px] justify-start truncate">
+          {summaryLabel(current)}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-52 p-2" align="start">
+        <p className="text-xs font-medium text-muted-foreground mb-2 px-1">Avisos antes de la cita</p>
+        <div className="space-y-1">
+          {REMINDER_OPTIONS.map(opt => (
+            <label key={opt.value} className="flex items-center gap-2 px-1 py-1 rounded hover:bg-muted cursor-pointer text-sm">
+              <Checkbox
+                checked={current.includes(opt.value)}
+                onCheckedChange={() => toggle(opt.value)}
+              />
+              {opt.label}
+            </label>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function ColorPreview({ color }: { color: string }) {
   const isValidHex = /^#[0-9A-Fa-f]{6}$/.test(color)
@@ -294,16 +367,16 @@ export default function SettingsPage() {
     URL.revokeObjectURL(url)
   }
 
-  const handleNotificationMinutesChange = async (userId: string, minutes: number) => {
+  const handleNotificationMinutesChange = async (userId: string, minutes: number[]) => {
     try {
       const headers = await getAuthHeader()
       const res = await fetch("/api/admin/users", {
         method: "PATCH",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, notification_before_minutes: minutes }),
+        body: JSON.stringify({ userId, reminder_minutes: minutes }),
       })
       if (!res.ok) throw new Error(await res.text())
-      setClinicUsers(prev => prev.map(u => u.id === userId ? { ...u, notification_before_minutes: minutes } : u))
+      setClinicUsers(prev => prev.map(u => u.id === userId ? { ...u, reminder_minutes: minutes } : u))
       toast({ title: "Preferencia guardada" })
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" })
@@ -1245,23 +1318,11 @@ export default function SettingsPage() {
                             )}
                           </td>
                           <td className="py-3 pr-4">
-                            <Select
-                              value={String(u.notification_before_minutes ?? 30)}
-                              onValueChange={(v) => handleNotificationMinutesChange(u.id, Number(v))}
-                            >
-                              <SelectTrigger className="h-8 w-[110px]">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="10">10 min</SelectItem>
-                                <SelectItem value="15">15 min</SelectItem>
-                                <SelectItem value="20">20 min</SelectItem>
-                                <SelectItem value="30">30 min</SelectItem>
-                                <SelectItem value="45">45 min</SelectItem>
-                                <SelectItem value="60">60 min</SelectItem>
-                                <SelectItem value="1440">24 horas</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <ReminderCell
+                              userId={u.id}
+                              reminderMinutes={u.reminder_minutes ?? [30]}
+                              onChange={handleNotificationMinutesChange}
+                            />
                           </td>
                           <td className="py-3">
                             <Button

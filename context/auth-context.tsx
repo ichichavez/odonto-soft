@@ -11,7 +11,7 @@ type UserWithRole = {
   role: string
   clinic_id: string | null
   branch_id: string | null
-  notification_before_minutes: number
+  reminder_minutes: number[]
 }
 
 type AuthContextType = {
@@ -23,7 +23,7 @@ type AuthContextType = {
   isAuthenticated: boolean
   isSuperAdmin: boolean
   hasPermission: (requiredRoles: string[]) => boolean
-  updateNotificationMinutes: (minutes: number) => Promise<void>
+  updateReminderMinutes: (minutes: number[]) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -34,7 +34,7 @@ async function fetchProfile(userId: string, email: string | null): Promise<UserW
     const supabase = createBrowserClient()
     const { data } = await supabase
       .from("users")
-      .select("name, role, clinic_id, branch_id, notification_before_minutes")
+      .select("name, role, clinic_id, branch_id, reminder_minutes")
       .eq("id", userId)
       .single()
 
@@ -45,7 +45,7 @@ async function fetchProfile(userId: string, email: string | null): Promise<UserW
       role: data?.role ?? "asistente",
       clinic_id: data?.clinic_id ?? null,
       branch_id: data?.branch_id ?? null,
-      notification_before_minutes: data?.notification_before_minutes ?? 30,
+      reminder_minutes: (data as any)?.reminder_minutes ?? [30],
     }
   } catch {
     return {
@@ -55,7 +55,7 @@ async function fetchProfile(userId: string, email: string | null): Promise<UserW
       role: "asistente",
       clinic_id: null,
       branch_id: null,
-      notification_before_minutes: 30,
+      reminder_minutes: [30],
     }
   }
 }
@@ -205,7 +205,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return requiredRoles.includes(user.role)
   }
 
-  const updateNotificationMinutes = async (minutes: number) => {
+  const updateReminderMinutes = async (minutes: number[]) => {
     const supabase = createBrowserClient()
     const { data: { session: currentSession } } = await supabase.auth.getSession()
     if (!currentSession?.access_token) return
@@ -215,9 +215,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         Authorization: `Bearer ${currentSession.access_token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ notification_before_minutes: minutes }),
+      body: JSON.stringify({ reminder_minutes: minutes }),
     })
-    setUser(prev => prev ? { ...prev, notification_before_minutes: minutes } : null)
+    setUser(prev => prev ? { ...prev, reminder_minutes: minutes } : null)
   }
 
   if (loading) {
@@ -239,7 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         isSuperAdmin: user?.role === "superadmin",
         hasPermission,
-        updateNotificationMinutes,
+        updateReminderMinutes,
       }}
     >
       {children}

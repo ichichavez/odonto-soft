@@ -20,7 +20,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/context/auth-context"
 import { Bell, LogOut, Settings, User } from "lucide-react"
@@ -28,56 +28,81 @@ import Link from "next/link"
 import { NotificationDropdown } from "@/components/notification-dropdown"
 import { useToast } from "@/hooks/use-toast"
 
+// ─── Reminder options ─────────────────────────────────────────────────────────
+
+const REMINDER_OPTIONS = [
+  { value: 1440, label: "24 horas antes" },
+  { value: 120,  label: "2 horas antes" },
+  { value: 60,   label: "1 hora antes" },
+  { value: 45,   label: "45 minutos antes" },
+  { value: 30,   label: "30 minutos antes" },
+  { value: 15,   label: "15 minutos antes" },
+  { value: 10,   label: "10 minutos antes" },
+]
+
+function formatMin(min: number): string {
+  if (min >= 1440) return "24 h"
+  if (min >= 60) return `${min / 60} h`
+  return `${min} min`
+}
+
+function summaryLabel(minutes: number[]): string {
+  if (!minutes.length) return "ninguno"
+  return [...minutes].sort((a, b) => b - a).map(formatMin).join(" · ")
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export function UserNav() {
-  const { user, signOut, isAuthenticated, updateNotificationMinutes } = useAuth()
+  const { user, signOut, isAuthenticated, updateReminderMinutes } = useAuth()
   const { toast } = useToast()
   const [notifOpen, setNotifOpen] = useState(false)
-  const [selectedMinutes, setSelectedMinutes] = useState<string>("30")
+  const [selected, setSelected] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
 
   if (!isAuthenticated) {
     return (
       <Link href="/login">
-        <Button variant="outline" size="sm">
-          Iniciar sesión
-        </Button>
+        <Button variant="outline" size="sm">Iniciar sesión</Button>
       </Link>
     )
   }
 
-  const getInitials = (name: string) => {
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-  }
+  const getInitials = (name: string) =>
+    name.split(" ").map((n) => n[0]).join("").toUpperCase()
 
   const getRoleName = (role: string) => {
     switch (role) {
-      case "admin":
-        return "Administrador"
-      case "dentista":
-        return "Dentista"
-      case "asistente":
-        return "Asistente"
-      default:
-        return role
+      case "admin":      return "Administrador"
+      case "dentista":   return "Dentista"
+      case "asistente":  return "Asistente"
+      default:           return role
     }
   }
 
   const handleOpenNotifDialog = () => {
-    setSelectedMinutes(String(user?.notification_before_minutes ?? 30))
+    setSelected(user?.reminder_minutes ?? [30])
     setNotifOpen(true)
   }
 
-  const formatMinutes = (min: number) => min >= 1440 ? "24 horas" : `${min} minutos`
+  const toggleOption = (value: number) => {
+    setSelected(prev =>
+      prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]
+    )
+  }
 
-  const handleSaveNotifMinutes = async () => {
+  const handleSave = async () => {
+    if (!selected.length) {
+      toast({ title: "Seleccioná al menos un recordatorio", variant: "destructive" })
+      return
+    }
     setSaving(true)
     try {
-      await updateNotificationMinutes(Number(selectedMinutes))
-      toast({ title: "Preferencia guardada", description: `Recibirás avisos ${formatMinutes(Number(selectedMinutes))} antes de cada cita.` })
+      await updateReminderMinutes(selected)
+      toast({
+        title: "Preferencia guardada",
+        description: `Recibirás avisos: ${summaryLabel(selected)} antes de cada cita.`,
+      })
       setNotifOpen(false)
     } catch {
       toast({ title: "Error al guardar", variant: "destructive" })
@@ -124,7 +149,7 @@ export function UserNav() {
               <Bell className="mr-2 h-4 w-4" />
               <span>Aviso de citas</span>
               <span className="ml-auto text-xs text-muted-foreground">
-                {(user?.notification_before_minutes ?? 30) >= 1440 ? "24 h" : `${user?.notification_before_minutes ?? 30} min`}
+                {summaryLabel(user?.reminder_minutes ?? [30])}
               </span>
             </DropdownMenuItem>
           </DropdownMenuGroup>
@@ -136,35 +161,32 @@ export function UserNav() {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Dialog para configurar aviso de citas */}
+      {/* Dialog — configurar recordatorios */}
       <Dialog open={notifOpen} onOpenChange={setNotifOpen}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Aviso de citas</DialogTitle>
+            <DialogTitle>Avisos de citas</DialogTitle>
             <DialogDescription>
-              ¿Cuánto tiempo antes de cada cita quieres recibir el aviso?
+              Seleccioná uno o más momentos para recibir el recordatorio.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-2">
-            <Label className="mb-2 block text-sm">Tiempo de anticipación</Label>
-            <Select value={selectedMinutes} onValueChange={setSelectedMinutes}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="10">10 minutos antes</SelectItem>
-                <SelectItem value="15">15 minutos antes</SelectItem>
-                <SelectItem value="20">20 minutos antes</SelectItem>
-                <SelectItem value="30">30 minutos antes</SelectItem>
-                <SelectItem value="45">45 minutos antes</SelectItem>
-                <SelectItem value="60">60 minutos antes</SelectItem>
-                <SelectItem value="1440">24 horas antes</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="py-2 space-y-2">
+            {REMINDER_OPTIONS.map(opt => (
+              <div key={opt.value} className="flex items-center gap-3">
+                <Checkbox
+                  id={`reminder-${opt.value}`}
+                  checked={selected.includes(opt.value)}
+                  onCheckedChange={() => toggleOption(opt.value)}
+                />
+                <Label htmlFor={`reminder-${opt.value}`} className="text-sm cursor-pointer">
+                  {opt.label}
+                </Label>
+              </div>
+            ))}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNotifOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSaveNotifMinutes} disabled={saving}>
+            <Button onClick={handleSave} disabled={saving}>
               {saving ? "Guardando..." : "Guardar"}
             </Button>
           </DialogFooter>

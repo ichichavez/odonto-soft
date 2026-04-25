@@ -12,24 +12,25 @@ export async function PATCH(request: Request) {
   }
 
   const body = await request.json()
-  const { notification_before_minutes } = body
+  const { reminder_minutes } = body
 
-  if (notification_before_minutes !== undefined) {
-    const minutes = Number(notification_before_minutes)
-    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 1440) {
+  if (!Array.isArray(reminder_minutes)) {
+    return NextResponse.json({ error: "reminder_minutes debe ser un array" }, { status: 400 })
+  }
+
+  for (const m of reminder_minutes) {
+    if (!Number.isInteger(m) || m < 1 || m > 1440) {
       return NextResponse.json(
-        { error: "notification_before_minutes debe ser un entero entre 1 y 1440" },
+        { error: "Cada valor de reminder_minutes debe ser un entero entre 1 y 1440" },
         { status: 400 }
       )
     }
-  } else {
-    return NextResponse.json({ error: "Nada que actualizar" }, { status: 400 })
   }
 
   const supabase = createServerClient()
-  const { error } = await supabase
+  const { error } = await (supabase as any)
     .from("users")
-    .update({ notification_before_minutes })
+    .update({ reminder_minutes })
     .eq("id", profile.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
