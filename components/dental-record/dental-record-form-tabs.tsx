@@ -202,6 +202,8 @@ const defaultSpecialtyNotes = () => ({
 export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
   function DentalRecordFormTabs({ initialData, extraTabs, patientId }, ref) {
     const d = initialData
+    // Lock the type selector once a record already has a type assigned
+    const isTypeLocked = d?.patientType != null
 
     const [patientType,      setPatientType]      = useState<"adulto" | "nino">(d?.patientType ?? "adulto")
     const [consultationDate, setConsultationDate] = useState(d?.consultationDate ?? new Date().toISOString().slice(0, 10))
@@ -314,19 +316,28 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
         {/* Tipo de paciente */}
         <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3">
           <span className="text-sm font-medium mr-2">Tipo de paciente:</span>
-          {(["adulto", "nino"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setPatientType(t)}
-              className={`flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
-                patientType === t ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-accent"
-              }`}
-            >
-              {t === "adulto" ? <User2 className="h-4 w-4" /> : <Baby className="h-4 w-4" />}
-              {t === "adulto" ? "Adulto" : "Niño/a"}
-            </button>
-          ))}
+          {isTypeLocked ? (
+            // Existing patient — display only, no toggle allowed
+            <div className="flex items-center gap-2 rounded-md px-4 py-1.5 bg-primary text-primary-foreground text-sm font-medium shadow-sm select-none">
+              {patientType === "adulto" ? <User2 className="h-4 w-4" /> : <Baby className="h-4 w-4" />}
+              {patientType === "adulto" ? "Adulto" : "Niño/a"}
+            </div>
+          ) : (
+            // New patient — allow selecting type
+            (["adulto", "nino"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setPatientType(t)}
+                className={`flex items-center gap-2 rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+                  patientType === t ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-accent"
+                }`}
+              >
+                {t === "adulto" ? <User2 className="h-4 w-4" /> : <Baby className="h-4 w-4" />}
+                {t === "adulto" ? "Adulto" : "Niño/a"}
+              </button>
+            ))
+          )}
           {patientType === "nino" && (
             <Badge variant="secondary" className="ml-2 text-xs">Campos pediátricos activos</Badge>
           )}
