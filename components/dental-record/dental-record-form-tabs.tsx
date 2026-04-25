@@ -336,9 +336,9 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
         <Tabs defaultValue="datos">
           <TabsList className="flex flex-wrap h-auto gap-1 mb-2">
             <TabsTrigger value="datos"        className="gap-1.5 text-xs"><ClipboardList className="h-3.5 w-3.5" />Datos</TabsTrigger>
-            <TabsTrigger value="medica"       className="gap-1.5 text-xs"><AlertCircle className="h-3.5 w-3.5" />Hist. Médico</TabsTrigger>
+            <TabsTrigger value="medica"       className="gap-1.5 text-xs"><AlertCircle className="h-3.5 w-3.5" />Hist. Médica</TabsTrigger>
             {patientType === "adulto" && (
-              <TabsTrigger value="odontologica" className="gap-1.5 text-xs">H. Dental</TabsTrigger>
+              <TabsTrigger value="odontologica" className="gap-1.5 text-xs">Hist. Dental</TabsTrigger>
             )}
             <TabsTrigger value="habitos"      className="gap-1.5 text-xs">Hábitos</TabsTrigger>
             <TabsTrigger value="extraoral"    className="gap-1.5 text-xs"><Stethoscope className="h-3.5 w-3.5" />Extra Oral</TabsTrigger>
@@ -347,12 +347,9 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
             <TabsTrigger value="tratamientos" className="gap-1.5 text-xs"><ClipboardList className="h-3.5 w-3.5" />Tratamiento</TabsTrigger>
             <TabsTrigger value="ortodoncia"   className="gap-1.5 text-xs">Ortodoncia</TabsTrigger>
             <TabsTrigger value="armonizacion" className="gap-1.5 text-xs">Armonización</TabsTrigger>
-            <TabsTrigger value="perio"        className="gap-1.5 text-xs">Perio</TabsTrigger>
+            <TabsTrigger value="perio"        className="gap-1.5 text-xs">Periodoncia</TabsTrigger>
             {patientType === "nino" && (
-              <TabsTrigger value="alimentacion" className="gap-1.5 text-xs"><Baby className="h-3.5 w-3.5" />Alimentación</TabsTrigger>
-            )}
-            {patientType === "nino" && (
-              <TabsTrigger value="dieta" className="gap-1.5 text-xs">Dieta</TabsTrigger>
+              <TabsTrigger value="odontopediatria" className="gap-1.5 text-xs"><Baby className="h-3.5 w-3.5" />Odontopediatría</TabsTrigger>
             )}
             {extraTabs?.map((tab) => (
               <TabsTrigger key={tab.value} value={tab.value} className="gap-1.5 text-xs">
@@ -1121,9 +1118,9 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
             <PerioForm value={perio} onChange={setPerio} />
           </TabsContent>
 
-          {/* ── ALIMENTACIÓN (niño) ── */}
+          {/* ── ODONTOPEDIATRÍA (niño): Alimentación + Dieta ── */}
           {patientType === "nino" && (
-            <TabsContent value="alimentacion" className="space-y-4">
+            <TabsContent value="odontopediatria" className="space-y-4">
               <FormSection title="Tipo de lactancia">
                 <RadioGroupField
                   name="breastfeeding_type"
@@ -1179,12 +1176,7 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
                   })}
                 </div>
               </FormSection>
-            </TabsContent>
-          )}
-
-          {/* ── DIETA (niño) ── */}
-          {patientType === "nino" && (
-            <TabsContent value="dieta" className="space-y-4">
+              <Separator />
               <FormSection title="Alimentos preferidos">
                 <CheckboxGroup items={[
                   { key: "cakes",          label: "Tortas" },        { key: "cookies",        label: "Galletitas" },
