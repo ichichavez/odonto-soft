@@ -336,7 +336,7 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
         <Tabs defaultValue="datos">
           <TabsList className="flex flex-wrap h-auto gap-1 mb-2">
             <TabsTrigger value="datos"        className="gap-1.5 text-xs"><ClipboardList className="h-3.5 w-3.5" />Datos</TabsTrigger>
-            <TabsTrigger value="medica"       className="gap-1.5 text-xs"><AlertCircle className="h-3.5 w-3.5" />Hist. Médica</TabsTrigger>
+            <TabsTrigger value="medica"       className="gap-1.5 text-xs"><AlertCircle className="h-3.5 w-3.5" />Hist. Médico</TabsTrigger>
             {patientType === "adulto" && (
               <TabsTrigger value="odontologica" className="gap-1.5 text-xs">Hist. Dental</TabsTrigger>
             )}
