@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { ToothSvg } from "@/components/dental-record/tooth-svg"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -131,12 +132,14 @@ function PeriogramTable({
   midline,
   data,
   onChange,
+  inverted = false,
 }: {
   label: string
   teeth: number[]
   midline: number
   data: PerioTeeth
   onChange: (v: PerioTeeth) => void
+  inverted?: boolean
 }) {
   const getVal = (tooth: number, row: PRow, pos: PPos): string =>
     data[String(tooth)]?.[row]?.[pos] ?? ""
@@ -262,11 +265,32 @@ function PeriogramTable({
           </thead>
           <tbody>
             {ROWS_TOP.map(renderRow)}
-            {/* Midline row */}
-            <tr className="h-1.5 bg-muted/30">
-              <td className="sticky left-0 z-10 bg-muted/30 border-r border-gray-200" />
-              {teeth.map(t => <td key={t} colSpan={3} className="border-t-2 border-gray-500 border-b-2" />)}
+
+            {/* ── Tooth SVG row ── */}
+            <tr>
+              <td className="sticky left-0 z-10 bg-background w-8 border-r border-gray-200" />
+              {teeth.map((t, idx) => (
+                <td
+                  key={t}
+                  colSpan={3}
+                  className={cn(
+                    "p-0 border-t border-b-2 border-gray-200",
+                    idx > 0 && "border-l border-gray-200",
+                    idx === midline + 1 && "border-l-2 border-l-gray-500",
+                  )}
+                >
+                  <ToothSvg
+                    clipPrefix={`${label.replace(/\s/g, "")}-`}
+                    toothNum={t}
+                    mesial={data[String(t)]?.ps_top?.mesial ?? ""}
+                    center={data[String(t)]?.ps_top?.center ?? ""}
+                    distal={data[String(t)]?.ps_top?.distal ?? ""}
+                    inverted={inverted}
+                  />
+                </td>
+              ))}
             </tr>
+
             {ROWS_BOT.map(renderRow)}
           </tbody>
         </table>
@@ -274,7 +298,8 @@ function PeriogramTable({
       <p className="text-[10px] text-muted-foreground/80">
         PS ≥ 4mm en <span className="text-red-600 font-medium">rojo</span> ·
         NI ≥ 4mm en <span className="text-green-700 font-medium">verde</span> ·
-        SS: clic para marcar sangrado (●)
+        SS: clic para marcar sangrado (●) ·
+        barras en diente: PS por posición (M / F / D)
       </p>
     </div>
   )
@@ -504,6 +529,7 @@ export function PerioForm({ value: v, onChange }: PerioFormProps) {
             midline={MIDLINE_UPPER}
             data={v.sup_vest}
             onChange={val => set("sup_vest", val)}
+            inverted={false}
           />
           <PeriogramTable
             label="Superior Palatino"
@@ -511,6 +537,7 @@ export function PerioForm({ value: v, onChange }: PerioFormProps) {
             midline={MIDLINE_UPPER}
             data={v.sup_pal}
             onChange={val => set("sup_pal", val)}
+            inverted={true}
           />
           <PeriogramTable
             label="Inferior Vestibular"
@@ -518,6 +545,7 @@ export function PerioForm({ value: v, onChange }: PerioFormProps) {
             midline={MIDLINE_LOWER}
             data={v.inf_vest}
             onChange={val => set("inf_vest", val)}
+            inverted={false}
           />
           <PeriogramTable
             label="Inferior Lingual"
@@ -525,6 +553,7 @@ export function PerioForm({ value: v, onChange }: PerioFormProps) {
             midline={MIDLINE_LOWER}
             data={v.inf_ling}
             onChange={val => set("inf_ling", val)}
+            inverted={true}
           />
         </div>
       </div>
