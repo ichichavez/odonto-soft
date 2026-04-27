@@ -1,7 +1,7 @@
 import { createBrowserClient } from "@/lib/supabase"
 
 export interface TreatmentPlanItem {
-  id?: string
+  id: string
   patient_id: string
   clinic_id?: string | null
   created_by?: string | null
@@ -38,25 +38,81 @@ export const treatmentPlanService = {
     return data ?? []
   },
 
-  // Reemplaza todos los ítems del paciente con los nuevos (delete + insert)
-  async upsertItems(patientId: string, items: Omit<TreatmentPlanItem, "id" | "created_at">[]): Promise<void> {
+  // Sincroniza los ítems del paciente preservando IDs para no perder pagos asociados.
+  // Items con ID → UPDATE (no toca el campo payment, lo gestiona el trigger).
+  // Items sin ID → INSERT.
+  // Items en DB que ya no están en el form → DELETE (si falla por FK RESTRICT = tiene pagos → se ignora silenciosamente).
+  // Retorna la lista actualizada con IDs.
+  async upsertItems(
+    patientId: string,
+    items: Array<Partial<TreatmentPlanItem> & { patient_id: string; description: string; cost: number; payment: number; date: string }>,
+  ): Promise<TreatmentPlanItem[]> {
     const supabase = createBrowserClient()
 
-    const { error: deleteError } = await (supabase as any)
+    // 1. Obtener IDs actuales en DB
+    const { data: dbItems, error: fetchError } = await (supabase as any)
       .from("treatment_plan_items")
-      .delete()
+      .select("id")
       .eq("patient_id", patientId)
+    if (fetchError) throw fetchError
 
-    if (deleteError) throw deleteError
+    const dbIds = new Set<string>((dbItems ?? []).map((r: any) => r.id as string))
+    const formIds = new Set<string>(items.filter((i) => i.id).map((i) => i.id as string))
 
-    if (items.length === 0) return
+    // 2. UPDATE los que ya tienen ID
+    for (const item of items.filter((i) => i.id)) {
+      const { error } = await (supabase as any)
+        .from("treatment_plan_items")
+        .update({
+          date:        item.date,
+          tooth:       item.tooth ?? null,
+          description: item.description,
+          cost:        item.cost,
+          notes:       item.notes ?? null,
+        })
+        .eq("id", item.id)
+      if (error) throw error
+    }
 
-    const rows = items.map((item) => ({ ...item, patient_id: patientId }))
+    // 3. INSERT los nuevos (sin ID)
+    const toInsert = items
+      .filter((i) => !i.id)
+      .map((i) => ({
+        patient_id:  patientId,
+        clinic_id:   i.clinic_id ?? null,
+        created_by:  i.created_by ?? null,
+        date:        i.date,
+        tooth:       i.tooth ?? null,
+        description: i.description,
+        cost:        i.cost,
+        payment:     0,
+        notes:       i.notes ?? null,
+      }))
 
-    const { error: insertError } = await (supabase as any)
+    if (toInsert.length > 0) {
+      const { error } = await (supabase as any)
+        .from("treatment_plan_items")
+        .insert(toInsert)
+      if (error) throw error
+    }
+
+    // 4. DELETE los que ya no están en el form (ignorar error FK RESTRICT = tienen pagos)
+    const toDelete = [...dbIds].filter((id) => !formIds.has(id))
+    for (const id of toDelete) {
+      await (supabase as any)
+        .from("treatment_plan_items")
+        .delete()
+        .eq("id", id)
+      // No lanzar error — puede fallar por FK RESTRICT si el item tiene pagos
+    }
+
+    // 5. Retornar lista actualizada
+    const { data: updated, error: fetchUpdated } = await (supabase as any)
       .from("treatment_plan_items")
-      .insert(rows)
-
-    if (insertError) throw insertError
+      .select("*")
+      .eq("patient_id", patientId)
+      .order("date", { ascending: true })
+    if (fetchUpdated) throw fetchUpdated
+    return updated ?? []
   },
 }
