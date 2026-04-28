@@ -20,6 +20,7 @@ import type {
 } from "@/types/dental"
 import { PerioForm, type PerioData, defaultPerio } from "@/components/dental-record/perio-form"
 import { OrtodonciaForm, type OrtodonciaData, defaultOrtodoncia } from "@/components/dental-record/ortodoncia-form"
+import { EndodonciaForm, type EndodonciaData, defaultEndodoncia } from "@/components/dental-record/endodoncia-form"
 
 // ─── Public types ───────────────────────────────────────────────────────────
 
@@ -87,7 +88,7 @@ export interface DentalFormData {
   medicalHistory: MedicalHistory
   dentalHistory: DentalHistory
   treatmentsDone: { date: string; tooth: string; description: string }[]
-  specialtyNotes: { ortodoncia: OrtodonciaData; armonizacion: ArmonizacionData; perio: PerioData }
+  specialtyNotes: { ortodoncia: OrtodonciaData; armonizacion: ArmonizacionData; perio: PerioData; endodoncia: EndodonciaData }
 }
 
 export interface DentalRecordFormHandle {
@@ -195,6 +196,7 @@ const defaultSpecialtyNotes = () => ({
   ortodoncia: defaultOrtodoncia(),
   armonizacion: defaultArmonizacion(),
   perio: defaultPerio(),
+  endodoncia: defaultEndodoncia(),
 })
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -285,6 +287,11 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
       if (saved && typeof saved === "object") return { ...defaultArmonizacion(), ...(saved as any) }
       return defaultArmonizacion()
     })
+    const [endodoncia, setEndodoncia] = useState<EndodonciaData>(() => {
+      const saved = (d?.specialtyNotes as any)?.endodoncia
+      if (saved && typeof saved === "object") return { ...defaultEndodoncia(), ...(saved as any) }
+      return defaultEndodoncia()
+    })
 
     // ── Expose data via ref ──────────────────────────────────────────
     useImperativeHandle(ref, () => ({
@@ -293,7 +300,7 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
         profession, civilStatus, workAddress, weight, height, guardianName, guardianPhone,
         feedingHistory, dietRecord, extraOral, intraOral, habits, medicalHistory, dentalHistory,
         treatmentsDone,
-        specialtyNotes: { ortodoncia, armonizacion, perio },
+        specialtyNotes: { ortodoncia, armonizacion, perio, endodoncia },
       }),
     }))
 
@@ -359,6 +366,7 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
             <TabsTrigger value="ortodoncia"   className="gap-1.5 text-xs">Ortodoncia</TabsTrigger>
             <TabsTrigger value="armonizacion" className="gap-1.5 text-xs">Armonización</TabsTrigger>
             <TabsTrigger value="perio"        className="gap-1.5 text-xs">Periodoncia</TabsTrigger>
+            <TabsTrigger value="endodoncia"   className="gap-1.5 text-xs">Endodoncia</TabsTrigger>
             {patientType === "nino" && (
               <TabsTrigger value="odontopediatria" className="gap-1.5 text-xs"><Baby className="h-3.5 w-3.5" />Odontopediatría</TabsTrigger>
             )}
@@ -1127,6 +1135,11 @@ export const DentalRecordFormTabs = forwardRef<DentalRecordFormHandle, Props>(
           {/* ── PERIODONCIA ── */}
           <TabsContent value="perio" className="space-y-4">
             <PerioForm value={perio} onChange={setPerio} />
+          </TabsContent>
+
+          {/* ── ENDODONCIA ── */}
+          <TabsContent value="endodoncia" className="space-y-4">
+            <EndodonciaForm value={endodoncia} onChange={setEndodoncia} />
           </TabsContent>
 
           {/* ── ODONTOPEDIATRÍA (niño): Alimentación + Dieta ── */}
