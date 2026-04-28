@@ -277,21 +277,21 @@ export function EndodonciaForm({ value: v, onChange }: EndodonciaFormProps) {
         <div className="space-y-3">
 
           {/* Q1 */}
-          <div className="grid grid-cols-[1fr_auto] gap-3 items-start">
-            <p className="text-xs leading-snug pt-0.5">1. ¿Está sufriendo actualmente alguna molestia?</p>
+          <div className="space-y-1">
+            <p className="text-xs">1. ¿Está sufriendo actualmente alguna molestia?</p>
             <Chips options={SI_NO} value={v.q1_molestia} onChange={(val) => set("q1_molestia", val)} />
+            {v.q1_molestia === "si" && (
+              <Input
+                value={v.q1_motivo}
+                onChange={(e) => set("q1_motivo", e.target.value)}
+                placeholder="Motivo..."
+                className="h-7 text-xs"
+              />
+            )}
           </div>
-          {v.q1_molestia === "si" && (
-            <Input
-              value={v.q1_motivo}
-              onChange={(e) => set("q1_motivo", e.target.value)}
-              placeholder="Motivo..."
-              className="h-7 text-xs ml-4"
-            />
-          )}
 
           {/* Q2 */}
-          <div className="grid grid-cols-[1fr_auto] gap-3 items-center">
+          <div className="space-y-1">
             <p className="text-xs">2. ¿Puede señalar el diente problema?</p>
             <Chips options={SI_NO} value={v.q2_senalar_diente} onChange={(val) => set("q2_senalar_diente", val)} />
           </div>
@@ -399,47 +399,47 @@ export function EndodonciaForm({ value: v, onChange }: EndodonciaFormProps) {
           </div>
 
           {/* Q10 */}
-          <div className="grid grid-cols-[1fr_auto] gap-3 items-center">
+          <div className="space-y-1">
             <p className="text-xs">10. ¿Le provoca dolor morder o masticar con ese diente?</p>
             <Chips options={SI_NO} value={v.q10_morder} onChange={(val) => set("q10_morder", val)} />
           </div>
 
           {/* Q11 */}
-          <div className="grid grid-cols-[1fr_auto] gap-3 items-center">
+          <div className="space-y-1">
             <p className="text-xs">11. ¿Le provoca dolor la zona alrededor del diente?</p>
             <Chips options={SI_NO} value={v.q11_alrededor} onChange={(val) => set("q11_alrededor", val)} />
           </div>
 
           {/* Q12 */}
-          <div className="grid grid-cols-[1fr_auto] gap-3 items-center">
+          <div className="space-y-1">
             <p className="text-xs">12. ¿Alguna vez se le inició un tratamiento de conducto en este diente?</p>
             <Chips options={SI_NO} value={v.q12_tratamiento_conducto} onChange={(val) => set("q12_tratamiento_conducto", val)} />
           </div>
 
           {/* Q13 */}
-          <div className="grid grid-cols-[1fr_auto] gap-3 items-center">
+          <div className="space-y-1">
             <p className="text-xs">13. ¿Se le aplicó al diente alguna restauración recientemente?</p>
             <Chips options={SI_NO} value={v.q13_restauracion} onChange={(val) => set("q13_restauracion", val)} />
           </div>
 
           {/* Q14 */}
-          <div className="grid grid-cols-[1fr_auto] gap-3 items-center">
+          <div className="space-y-1">
             <p className="text-xs">14. ¿El dolor le impide dormir o hacer sus actividades?</p>
             <Chips options={SI_NO} value={v.q14_impide_actividades} onChange={(val) => set("q14_impide_actividades", val)} />
           </div>
 
           {/* Q15 */}
-          <div className="space-y-1.5">
-            <div className="grid grid-cols-[1fr_auto] gap-3 items-center">
-              <p className="text-xs">15. ¿Tomó algún medicamento para el dolor?</p>
-              <Chips options={SI_NO} value={v.q15_medicamento} onChange={(val) => set("q15_medicamento", val)} />
-            </div>
+          <div className="space-y-1">
+            <p className="text-xs">15. ¿Tomó algún medicamento para el dolor?</p>
+            <Chips options={SI_NO} value={v.q15_medicamento} onChange={(val) => set("q15_medicamento", val)} />
             {v.q15_medicamento === "si" && (
-              <div className="ml-4 flex gap-3 items-center flex-wrap">
+              <div className="flex gap-3 items-center flex-wrap pt-1">
                 <Input value={v.q15_cual} onChange={(e) => set("q15_cual", e.target.value)}
-                  placeholder="¿Cuál?" className="h-7 text-xs w-40" />
-                <span className="text-xs">¿Tuvo efecto?</span>
-                <Chips options={SI_NO} value={v.q15_efecto} onChange={(val) => set("q15_efecto", val)} />
+                  placeholder="¿Cuál medicamento?" className="h-7 text-xs w-44" />
+                <div className="space-y-1">
+                  <p className="text-xs">¿Tuvo efecto?</p>
+                  <Chips options={SI_NO} value={v.q15_efecto} onChange={(val) => set("q15_efecto", val)} />
+                </div>
               </div>
             )}
           </div>
