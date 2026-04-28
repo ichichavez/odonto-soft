@@ -371,15 +371,9 @@ export default function PacienteDetallePage() {
         </div>
         <div className="ml-auto flex gap-2 flex-wrap">
           <Button variant="outline" asChild>
-            <Link href={`/pacientes/${params.id}/exportar/historial`} className="flex items-center gap-2">
-              <Download className="h-4 w-4" />
-              Historial
-            </Link>
-          </Button>
-          <Button variant="outline" asChild>
             <Link href={`/pacientes/${params.id}/exportar/completo`} className="flex items-center gap-2">
               <Download className="h-4 w-4" />
-              Datos completos
+              Historial Completo
             </Link>
           </Button>
           <Button variant="outline" asChild>
